@@ -37,7 +37,10 @@
   main { overflow-y: auto; padding: 18px 22px; }
   .empty { color: var(--muted); margin-top: 40px; text-align: center; }
   .sig { font-family: var(--mono); font-size: 15px; font-weight: 600; }
-  .doc { color: var(--muted); margin: 6px 0 16px; }
+  .doc { color: var(--muted); margin: 6px 0 14px; white-space: pre-wrap; }
+  .note { background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:9px; margin-bottom:14px; font-size:13px; }
+  .note b { display:block; margin-bottom:3px; }
+  .ghost { background:var(--brand-weak); color:var(--brand); border:1px solid #cfe0ff; border-radius:8px; padding:7px 13px; font-size:12px; cursor:pointer; margin-top:9px; }
   .badge { font-size: 11px; padding: 2px 7px; border-radius: 999px; vertical-align: middle; }
   .badge.on { background: #dcfce7; color: var(--ok); } .badge.off { background: #f1f5f9; color: var(--muted); }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
@@ -95,7 +98,7 @@ function renderSidebar() {
   const box = document.getElementById("sidebar");
   box.innerHTML = "";
   for (const grp of CATALOG) {
-    const ms = grp.methods.filter(m => !q || m.name.toLowerCase().includes(q) || (m.doc || "").toLowerCase().includes(q));
+    const ms = grp.methods.filter(m => !q || m.name.toLowerCase().includes(q) || (m.summary || "").toLowerCase().includes(q));
     if (!ms.length) continue;
     const g = document.createElement("div"); g.className = "ns-group";
     g.innerHTML = `<div class="ns-title"><span>${grp.label}</span><small>pb.${grp.namespace}</small></div>`;
@@ -110,25 +113,45 @@ function renderSidebar() {
   }
 }
 
+function pyVal(v, type) {
+  const t = (type || "").toLowerCase();
+  if (t.includes("int") || t.includes("float") || t.includes("bool")) return String(v);
+  if (t.includes("list")) return "[" + String(v).split(",").map(s => '"' + s.trim() + '"').join(", ") + "]";
+  return '"' + v + '"';
+}
+function exampleCall(ns, m) {
+  const ex = m.example || {};
+  const types = Object.fromEntries(m.params.map(p => [p.name, p.type]));
+  const args = Object.entries(ex).map(([k, v]) => k + "=" + pyVal(v, types[k])).join(", ");
+  return "pb." + ns + "." + m.name + "(" + args + ")";
+}
+function fillExample() {
+  if (!CUR) return;
+  const ex = CUR.m.example || {};
+  document.querySelectorAll("#main input[data-p]").forEach(i => { if (ex[i.dataset.p] !== undefined) i.value = ex[i.dataset.p]; });
+}
 function selectIface(ns, m) {
   CUR = { ns, m };
   renderSidebar();
-  const main = document.getElementById("main");
+  const ex = m.example || {};
   const fields = m.params.map(p => {
-    const def = p.default === null || p.default === undefined ? "" : p.default;
+    const exv = ex[p.name];
+    const val = exv !== undefined ? exv : (p.default === null || p.default === undefined ? "" : p.default);
     const ph = p.type + (p.required ? "" : " · 可选") + (p.type.toLowerCase().includes("list") ? " · 逗号分隔" : "");
-    return `<div class="field">
-      <label>${p.name} ${p.required ? '<span class="req">*</span>' : ''} <span class="ty">${ph}</span></label>
-      <input data-p="${p.name}" data-t="${p.type}" value="${def}" placeholder="${ph}">
-    </div>`;
+    return '<div class="field"><label>' + esc(p.name) + (p.required ? ' <span class="req">*</span>' : '') +
+      ' <span class="ty">' + esc(ph) + '</span></label><input data-p="' + esc(p.name) + '" data-t="' +
+      esc(p.type) + '" value="' + esc(val) + '" placeholder="' + esc(ph) + '"></div>';
   }).join("");
-  main.innerHTML = `
-    <div class="sig">pb.${ns}.${m.name}(${m.params.map(p=>p.name).join(", ")})
-      <span class="badge ${m.implemented?'on':'off'}">${m.implemented?'已实现':'未实现'}</span></div>
-    <div class="doc">${m.doc || "—"}</div>
-    <div class="card"><h3>参数</h3>${fields || '<div style="color:var(--muted)">无参数</div>'}
-      <button class="run" id="runBtn" onclick="run()">运行</button></div>
-    <div id="result"></div>`;
+  const hasEx = Object.keys(ex).length > 0;
+  const exBlock = hasEx ? '<div class="card"><h3>参数调用示例</h3><div class="called">' +
+    esc(exampleCall(ns, m)) + '</div><button class="ghost" onclick="fillExample()">填入示例参数</button></div>' : "";
+  const noteBlock = m.note ? '<div class="note"><b>注意事项</b><div>' + esc(m.note) + '</div></div>' : "";
+  document.getElementById("main").innerHTML =
+    '<div class="sig">pb.' + ns + '.' + m.name + '(' + m.params.map(p => p.name).join(", ") + ')' +
+    ' <span class="badge ' + (m.implemented ? 'on' : 'off') + '">' + (m.implemented ? '已实现' : '未实现') + '</span></div>' +
+    '<div class="doc">' + esc(m.doc || m.summary || "—") + '</div>' + noteBlock + exBlock +
+    '<div class="card"><h3>参数</h3>' + (fields || '<div style="color:var(--muted)">无参数</div>') +
+    '<button class="run" id="runBtn" onclick="run()">运行</button></div><div id="result"></div>';
 }
 
 async function run() {

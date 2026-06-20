@@ -28,6 +28,14 @@ def test_interfaces_catalog():
     assert "fund_flow" not in {m["name"] for m in tdx["methods"]}
     assert j["capabilities"]
 
+    # 每个接口带「示例参数」与「注意事项」供页面展示
+    km = next(m for m in dc["methods"] if m["name"] == "kline")
+    assert km["example"].get("symbol")        # 可一键填入的示例参数
+    assert km["note"]                          # 注意事项
+    assert "summary" in km and "doc" in km
+    ih = next(m for m in dc["methods"] if m["name"] == "intraday_hist")
+    assert "NotImplementedError" in ih["note"]  # 未实现接口给默认提示
+
 
 def test_call_stub_returns_error_cleanly():
     r = client.post(

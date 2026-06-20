@@ -34,6 +34,48 @@ _SKIP = {"close"}  # 生命周期方法,非数据接口
 
 _EMPTY = inspect.Parameter.empty
 
+# 每个接口的「可直接跑的示例参数」+「注意事项」,在页面里展示并支持一键填入。
+EXAMPLES: dict[str, dict] = {
+    "dc.quote": {
+        "params": {"symbol": "600519.SH"},
+        "note": "单只返回 dict;停牌时 price 可能为 None。金额=元,成交量=手。",
+    },
+    "dc.quotes": {
+        "params": {"symbol_list": "000001.SZ,600519.SH"},
+        "note": "批量返回 DataFrame;v0.1 为串行,几十只以内顺手,勿循环打几千只。",
+    },
+    "dc.kline": {
+        "params": {"symbol": "600519.SH", "freq": "1d", "adjust": "qfq", "start": "2024-01-01"},
+        "note": "freq=1m/5m/15m/30m/60m/1d/1w/1M;adjust=qfq/hfq/留空;1 分钟历史深度有限。"
+        "金额=元,成交量=手,涨跌幅/换手=%。",
+    },
+    "dc.intraday": {
+        "params": {"symbol": "000001.SZ"},
+        "note": "返回最近一个交易日的分时;盘中调用为当日实时。每分钟一行。",
+    },
+    "dc.fund_flow": {
+        "params": {"symbol": "000001.SZ", "days": "30"},
+        "note": "净额单位=元;main(主力)=large(大单)+super(超大单);占比=%。",
+    },
+    "dc.lhb": {
+        "params": {"date": "2026-06-18"},
+        "note": "date 必须 YYYY-MM-DD(否则 ValueError);非交易日 / 无榜单→NoData。金额=元。",
+    },
+    "dc.financials": {
+        "params": {"symbol": "600519.SH"},
+        "note": "按报告期,一行一期;金额=元,EPS/BPS=元,同比/ROE=%。",
+    },
+    "auto.kline": {
+        "params": {"symbol": "000001.SZ", "prefer": "dc,tdx"},
+        "note": "默认不参与;仅网络/限频/不支持/未实现时降级,SchemaChanged/NoData 直接抛;"
+        "来源见 df.attrs。",
+    },
+    "auto.quote": {
+        "params": {"symbol": "000001.SZ", "prefer": "dc,tdx"},
+        "note": "同 auto.kline 的降级策略。",
+    },
+}
+
 
 def _is_stub(method: Any) -> bool:
     try:
@@ -76,12 +118,20 @@ def _catalog() -> list[dict]:
             if not callable(m):
                 continue
             doc = (inspect.getdoc(m) or "").strip().splitlines()
+            implemented = not _is_stub(m)
+            ex = EXAMPLES.get(f"{ns_name}.{attr}", {})
+            note = ex.get("note") or (
+                "" if implemented else "未实现:调用会抛 NotImplementedError(计划后续版本)。"
+            )
             methods.append(
                 {
                     "name": attr,
-                    "doc": doc[0] if doc else "",
-                    "implemented": not _is_stub(m),
+                    "summary": doc[0] if doc else "",
+                    "doc": "\n".join(doc),
+                    "implemented": implemented,
                     "params": _param_spec(m),
+                    "example": ex.get("params", {}),
+                    "note": note,
                 }
             )
         out.append(

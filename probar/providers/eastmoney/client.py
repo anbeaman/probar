@@ -37,7 +37,21 @@ class EastMoney(HttpProvider):
         end: str | None = None,
         limit: int = 1000,
     ) -> pd.DataFrame:
-        """历史 K 线。``freq`` ∈ {1m,5m,15m,30m,60m,1d,1w,1M};``adjust`` ∈ {qfq,hfq,None}。"""
+        """历史 K 线。
+
+        参数:
+            symbol: 代码,如 "600519.SH" / "000001.SZ" / "600519"
+            freq:   1m/5m/15m/30m/60m/1d/1w/1M(默认 1d)
+            adjust: "qfq"前复权 / "hfq"后复权 / None 不复权(默认 qfq)
+            start, end: "YYYY-MM-DD",省略取最近 limit 根
+            limit:  最多根数(默认 1000)
+        返回 DataFrame: symbol, date, open, high, low, close,
+            volume(手), amount(元), pct_chg(%), turnover(%)
+        示例:
+            >>> pb.dc.kline("600519.SH", freq="1d", limit=2)
+                  symbol       date    open   close  volume  pct_chg
+            0  600519.SH 2024-01-02  1685.0  1648.0   38421    -2.11
+        """
         if freq not in ep.KLT:
             raise ValueError(f"不支持的 freq={freq!r},可选: {list(ep.KLT)}")
         if adjust not in ep.FQT:
@@ -59,7 +73,16 @@ class EastMoney(HttpProvider):
 
     # ---- 已实现:实时快照 ------------------------------------------------
     def quote(self, symbol: str) -> dict[str, Any]:
-        """单只实时快照(dict)。批量见 :meth:`quotes`。"""
+        """单只实时快照,返回 dict。批量见 :meth:`quotes`。
+
+        参数: symbol 证券代码。
+        返回 dict: symbol, name, price(元), open, high, low, prev_close,
+            volume(手), amount(元), pct_chg(%);停牌时 price 可能为 None。
+        示例:
+            >>> pb.dc.quote("600519.SH")
+            {'symbol': '600519.SH', 'name': '贵州茅台', 'price': 1648.0,
+             'prev_close': 1683.51, 'volume': 38421, 'pct_chg': -2.11}
+        """
         params = {
             "secid": symbols.to_eastmoney_secid(symbol),
             "ut": ep.UT,
@@ -69,7 +92,18 @@ class EastMoney(HttpProvider):
         return parsers.parse_quote(payload, symbol=str(symbols.normalize(symbol)))
 
     def quotes(self, symbol_list: list[str]) -> pd.DataFrame:
-        """批量实时快照(DataFrame)。v0.1 串行实现;v0.2 改用东财批量接口 + 异步。"""
+        """批量实时快照,返回 DataFrame。
+
+        参数: symbol_list 代码列表,如 ["000001.SZ", "600519.SH"]。
+        返回列: symbol, name, price(元), open, high, low, prev_close,
+            volume(手), amount(元), pct_chg(%)。
+        注意: v0.1 为串行,几十只以内顺手,勿循环打几千只(等 v0.2 批量/异步)。
+        示例:
+            >>> pb.dc.quotes(["000001.SZ", "600519.SH"])
+                  symbol  name   price  pct_chg
+            0  000001.SZ  平安银行   11.20     0.45
+            1  600519.SH  贵州茅台 1648.00    -2.11
+        """
         rows = [self.quote(s) for s in symbol_list]
         df = pd.DataFrame(rows)
         ensure_columns(df, QUOTE_COLUMNS, source=self.name, interface="quotes")
@@ -77,7 +111,16 @@ class EastMoney(HttpProvider):
 
     # ---- 已声明、待实现(诚实反映能力矩阵)-------------------------------
     def intraday(self, symbol: str) -> pd.DataFrame:
-        """当日分时(trends2):时间/开/高/低/收/量/额/均价。"""
+        """当日分时(最近交易日;盘中为当日实时),返回 DataFrame。
+
+        参数: symbol 证券代码。
+        返回列: symbol, time, open, high, low, close, volume(手),
+            amount(元), avg(当日均价, 元);每分钟一行。
+        示例:
+            >>> pb.dc.intraday("000001.SZ").tail(1)
+                  symbol                time  close  volume     avg
+            240  000001.SZ 2024-06-19 15:00  11.18    1788  11.205
+        """
         params = {
             "secid": symbols.to_eastmoney_secid(symbol),
             "ut": ep.UT,
@@ -93,7 +136,17 @@ class EastMoney(HttpProvider):
         return stamp(df, source=self.name)
 
     def fund_flow(self, symbol: str, *, days: int = 100) -> pd.DataFrame:
-        """个股历史资金流:主力/超大单/大单/中单/小单净额与净占比。"""
+        """个股历史资金流,返回 DataFrame。
+
+        参数: symbol 证券代码;days 取最近多少个交易日(默认 100)。
+        返回列(净额=元, 占比=%): symbol, date, main(主力), small, mid,
+            large(大单), super(超大单), main_pct…super_pct, close(元), pct_chg(%);
+            口径: main = large + super。
+        示例:
+            >>> pb.dc.fund_flow("000001.SZ", days=2)[["date", "main", "super"]]
+                     date          main          super
+            0  2026-06-16  -544577072.0  -306740640.0
+        """
         params = {
             "secid": symbols.to_eastmoney_secid(symbol),
             "ut": ep.FFLOW_UT,
@@ -109,7 +162,17 @@ class EastMoney(HttpProvider):
         return stamp(df, source=self.name)
 
     def lhb(self, *, date: str) -> pd.DataFrame:
-        """龙虎榜某日明细。``date`` 形如 ``'2026-06-18'``。"""
+        """龙虎榜某日明细,返回 DataFrame。
+
+        参数: date 交易日,必须 "YYYY-MM-DD"(非法抛 ValueError);
+            非交易日 / 无榜单抛 NoData。
+        返回列: date, code, name, close(元), change_rate(%), net_buy(元),
+            buy, sell, deal_amt, turnover(%), amount(元), reason(上榜原因)。
+        示例:
+            >>> pb.dc.lhb(date="2026-06-18")[["code", "name", "net_buy"]].head(1)
+                 code  name      net_buy
+            0  301687  示例股A  50000000.0
+        """
         # 严格校验日期,避免把任意字符串拼进上游 filter 表达式(注入/逃逸)
         try:
             day = datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d")
@@ -132,7 +195,17 @@ class EastMoney(HttpProvider):
         return stamp(df, source=self.name, date=day, truncated=len(df) >= page_size)
 
     def financials(self, symbol: str) -> pd.DataFrame:
-        """主要财务指标(按报告期):EPS/扣非EPS/BPS/营收/归母净利/同比/ROE。"""
+        """主要财务指标(按报告期,一行一期),返回 DataFrame。
+
+        参数: symbol 证券代码。
+        返回列: symbol, report_date, eps(元), eps_deduct(元), bps(元),
+            revenue(营收, 元), net_profit(归母净利, 元),
+            revenue_yoy(%), profit_yoy(%), roe(加权, %)。
+        示例:
+            >>> pb.dc.financials("600519.SH")[["report_date", "eps", "roe"]].head(1)
+                       report_date   eps  roe
+            0  2026-03-31 00:00:00  18.5  8.9
+        """
         sym = symbols.normalize(symbol)
         params = {
             "reportName": "RPT_F10_FINANCE_MAINFINADATA",

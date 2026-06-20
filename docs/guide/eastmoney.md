@@ -42,7 +42,10 @@ pb.dc.quotes(symbol_list)      # -> DataFrame
 - **返回列**:`symbol, name, price, open, high, low, prev_close, volume, amount, pct_chg`。
 
 ```python
-df = pb.dc.quotes(["000001.SZ", "600519.SH"])
+>>> pb.dc.quotes(["000001.SZ", "600519.SH"])
+      symbol  name   price  pct_chg
+0  000001.SZ  平安银行   11.20     0.45
+1  600519.SH  贵州茅台 1648.00    -2.11
 ```
 
 !!! warning "注意"
@@ -64,8 +67,12 @@ pb.dc.kline(symbol, freq="1d", adjust="qfq", start=None, end=None, limit=1000)  
 - **返回列**:`symbol, date, open, high, low, close, volume(手), amount(元), pct_chg(%), turnover(%)`。
 
 ```python
-df = pb.dc.kline("600519.SH", freq="1d", adjust="qfq", start="2024-01-01")
-df = pb.dc.kline("000001.SZ", freq="5m", limit=240)   # 分钟线
+>>> pb.dc.kline("600519.SH", freq="1d", adjust="qfq", limit=2)
+      symbol       date    open   close  volume  pct_chg  turnover
+0  600519.SH 2024-01-02  1685.0  1648.0   38421    -2.11      0.31
+1  600519.SH 2024-01-03  1650.0  1660.5   29110     0.76      0.23
+
+pb.dc.kline("000001.SZ", freq="5m", limit=240)   # 分钟线
 ```
 
 !!! warning "注意"
@@ -84,8 +91,9 @@ pb.dc.intraday(symbol)         # -> DataFrame
 - 每分钟一行,覆盖 9:30–15:00。
 
 ```python
-df = pb.dc.intraday("000001.SZ")
-df.tail()
+>>> pb.dc.intraday("000001.SZ").tail(1)
+        symbol                time  close  volume     avg
+240  000001.SZ 2024-06-19 15:00  11.18    1788  11.205
 ```
 
 !!! warning "注意"
@@ -105,8 +113,10 @@ pb.dc.fund_flow(symbol, days=100)   # -> DataFrame
 - 口径:`main(主力) = large(大单) + super(超大单)`。
 
 ```python
-df = pb.dc.fund_flow("000001.SZ", days=30)
-df[["date", "main", "super", "pct_chg"]].tail()
+>>> pb.dc.fund_flow("000001.SZ", days=2)[["date", "main", "super", "pct_chg"]]
+         date          main          super  pct_chg
+0  2026-06-16  -544577072.0  -306740640.0    -1.21
+1  2026-06-18  -869933072.0  -590207200.0    -2.02
 ```
 
 ---
@@ -121,8 +131,9 @@ pb.dc.lhb(date="YYYY-MM-DD")    # -> DataFrame
 - **返回列**:`date, code, name, close, change_rate(%), net_buy(元), buy(元), sell(元), deal_amt(元), turnover(%), amount(元), reason(上榜原因)`。
 
 ```python
-df = pb.dc.lhb(date="2026-06-18")
-df[["code", "name", "net_buy", "reason"]].head()
+>>> pb.dc.lhb(date="2026-06-18")[["code", "name", "net_buy", "reason"]].head(1)
+     code  name      net_buy        reason
+0  301687  示例股A  50000000.0  日涨幅偏离值达7%
 ```
 
 !!! warning "注意"
@@ -140,8 +151,9 @@ pb.dc.financials(symbol)       # -> DataFrame
   `symbol, report_date, eps(每股收益, 元), eps_deduct(扣非EPS, 元), bps(每股净资产, 元), revenue(营收, 元), net_profit(归母净利, 元), revenue_yoy(营收同比, %), profit_yoy(净利同比, %), roe(加权ROE, %)`。
 
 ```python
-df = pb.dc.financials("600519.SH")
-df[["report_date", "eps", "revenue", "roe"]].head()
+>>> pb.dc.financials("600519.SH")[["report_date", "eps", "revenue", "roe"]].head(1)
+           report_date   eps       revenue   roe
+0  2026-03-31 00:00:00  18.5  5.100000e+10   8.9
 ```
 
 ---
