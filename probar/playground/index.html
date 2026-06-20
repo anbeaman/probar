@@ -1714,5 +1714,252 @@
       loadInterfaces();
     })();
   </script>
+<script>
+(() => {
+  const STORAGE_KEY = "probar.catalogGroups.collapsed";
+  const readyAttr = "data-collapse-ready";
+  let idSeed = 0;
+  let rafId = 0;
+  let lastSearchInput = null;
+  let memoryState = {};
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .catalog-group > .group-head {
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.16s ease, color 0.16s ease;
+    }
+    .catalog-group > .group-head:hover {
+      background-color: rgba(148, 163, 184, 0.12);
+    }
+    .catalog-group > .group-head:focus-visible {
+      outline: 2px solid rgba(59, 130, 246, 0.55);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+    .catalog-group > .group-head .group-collapse-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1em;
+      margin-right: 0.35rem;
+      opacity: 0.72;
+      transform-origin: center;
+      transition: transform 0.16s ease, opacity 0.16s ease;
+    }
+    .catalog-group > .group-head:hover .group-collapse-icon {
+      opacity: 1;
+    }
+    .catalog-group.is-collapsed > .group-head .group-collapse-icon {
+      transform: rotate(-90deg);
+    }
+    .catalog-group.is-collapsed > .method-list {
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+
+  function readState() {
+    try {
+      return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}") || {};
+    } catch (error) {
+      return memoryState;
+    }
+  }
+
+  function writeState(state) {
+    memoryState = state;
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (error) {
+      // Keep the in-memory copy if sessionStorage is unavailable.
+    }
+  }
+
+  function getDirectChild(parent, className) {
+    return Array.prototype.find.call(parent.children, (child) =>
+      child.classList.contains(className)
+    );
+  }
+
+  function getHeadText(head) {
+    const clone = head.cloneNode(true);
+    const icon = clone.querySelector(".group-collapse-icon");
+    if (icon) icon.remove();
+    return clone.textContent.replace(/\s+/g, " ").trim();
+  }
+
+  function getGroupKey(group) {
+    if (group.dataset.collapseKey) return group.dataset.collapseKey;
+    const groups = Array.from(document.querySelectorAll(".catalog-group"));
+    const head = getDirectChild(group, "group-head") || group.querySelector(".group-head");
+    const label = head ? getHeadText(head) : "group";
+    const key = `${label || "group"}:${groups.indexOf(group)}`;
+    group.dataset.collapseKey = key;
+    return key;
+  }
+
+  function getCatalogRoot() {
+    const firstGroup = document.querySelector(".catalog-group");
+    if (!firstGroup) return document;
+    return (
+      firstGroup.closest("aside, nav, .sidebar, .side-bar, .catalog, .catalog-panel, .left-panel") ||
+      firstGroup.parentElement ||
+      document
+    );
+  }
+
+  function looksLikeSearchInput(input) {
+    if (!input || !("value" in input)) return false;
+    const type = (input.getAttribute("type") || "text").toLowerCase();
+    if (!["", "search", "text"].includes(type)) return false;
+
+    const meta = [
+      input.id,
+      input.name,
+      input.className,
+      input.placeholder,
+      input.getAttribute("aria-label"),
+      input.getAttribute("data-role"),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (
+      meta.includes("search") ||
+      meta.includes("filter") ||
+      meta.includes("\u641c\u7d22") ||
+      meta.includes("\u7b5b\u9009")
+    ) {
+      return true;
+    }
+
+    return getCatalogRoot().contains(input);
+  }
+
+  function isSearching() {
+    const inputs = Array.from(document.querySelectorAll("input, textarea")).filter(looksLikeSearchInput);
+    if (lastSearchInput && document.contains(lastSearchInput) && looksLikeSearchInput(lastSearchInput)) {
+      inputs.push(lastSearchInput);
+    }
+    return inputs.some((input) => String(input.value || "").trim().length > 0);
+  }
+
+  function setExpanded(group, expanded) {
+    const head = getDirectChild(group, "group-head") || group.querySelector(".group-head");
+    const list = getDirectChild(group, "method-list") || group.querySelector(".method-list");
+
+    group.classList.toggle("is-collapsed", !expanded);
+    if (head) head.setAttribute("aria-expanded", String(expanded));
+    if (list) list.setAttribute("aria-hidden", String(!expanded));
+  }
+
+  function applyState() {
+    const state = readState();
+    const searchActive = isSearching();
+
+    document.querySelectorAll(".catalog-group").forEach((group) => {
+      const key = getGroupKey(group);
+      setExpanded(group, searchActive ? true : state[key] !== false);
+    });
+  }
+
+  function scheduleApply() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      rafId = 0;
+      initCatalogGroups();
+      applyState();
+    });
+  }
+
+  function shouldIgnoreToggle(event, head) {
+    const interactive = event.target.closest("a, button, input, select, textarea, label, [role='button']");
+    return interactive && interactive !== head;
+  }
+
+  function toggleGroup(group) {
+    const key = getGroupKey(group);
+    const state = readState();
+    const nextExpanded = group.classList.contains("is-collapsed");
+    state[key] = nextExpanded;
+    writeState(state);
+    applyState();
+  }
+
+  function initCatalogGroups() {
+    document.querySelectorAll(".catalog-group").forEach((group) => {
+      const head = getDirectChild(group, "group-head") || group.querySelector(".group-head");
+      const list = getDirectChild(group, "method-list") || group.querySelector(".method-list");
+      if (!head || !list || head.hasAttribute(readyAttr)) return;
+
+      let icon = head.querySelector(".group-collapse-icon");
+      if (!icon) {
+        icon = document.createElement("span");
+        icon.className = "group-collapse-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = "\u25be";
+        head.prepend(icon);
+      }
+
+      if (!list.id) {
+        idSeed += 1;
+        list.id = `catalog-method-list-${idSeed}`;
+      }
+
+      if (head.tagName !== "BUTTON") {
+        head.setAttribute("role", "button");
+        head.setAttribute("tabindex", "0");
+      } else if (!head.getAttribute("type")) {
+        head.setAttribute("type", "button");
+      }
+
+      head.setAttribute("aria-controls", list.id);
+      head.setAttribute(readyAttr, "true");
+
+      head.addEventListener("click", (event) => {
+        if (shouldIgnoreToggle(event, head)) return;
+        toggleGroup(group);
+      });
+
+      if (head.tagName !== "BUTTON") {
+        head.addEventListener("keydown", (event) => {
+          if (shouldIgnoreToggle(event, head)) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            toggleGroup(group);
+          }
+        });
+      }
+    });
+  }
+
+  document.addEventListener(
+    "input",
+    (event) => {
+      if (looksLikeSearchInput(event.target)) {
+        lastSearchInput = event.target;
+        scheduleApply();
+      }
+    },
+    true
+  );
+
+  const observer = new MutationObserver(scheduleApply);
+
+  function start() {
+    initCatalogGroups();
+    applyState();
+    if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start, { once: true });
+  } else {
+    start();
+  }
+})();
+</script>
 </body>
 </html>
