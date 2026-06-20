@@ -40,7 +40,15 @@
   .doc { color: var(--muted); margin: 6px 0 14px; white-space: pre-wrap; }
   .note { background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:9px; margin-bottom:14px; font-size:13px; }
   .note b { display:block; margin-bottom:3px; }
-  .ghost { background:var(--brand-weak); color:var(--brand); border:1px solid #cfe0ff; border-radius:8px; padding:7px 13px; font-size:12px; cursor:pointer; margin-top:9px; }
+  .ghost { background:var(--brand-weak); color:var(--brand); border:1px solid #cfe0ff; border-radius:8px; padding:7px 13px; font-size:12px; cursor:pointer; }
+  .ds { margin:0; white-space:pre-wrap; word-break:break-word; font-family:var(--mono); font-size:12.5px; line-height:1.6; color:var(--ink); background:transparent; padding:0; border-radius:0; max-height:none; overflow:visible; }
+  .help { background:#fbfcfe; }
+  .actions { display:flex; gap:10px; align-items:center; margin-top:12px; }
+  .muted { color:var(--muted); }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+    aside { max-height: 42vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  }
   .badge { font-size: 11px; padding: 2px 7px; border-radius: 999px; vertical-align: middle; }
   .badge.on { background: #dcfce7; color: var(--ok); } .badge.off { background: #f1f5f9; color: var(--muted); }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
@@ -97,34 +105,26 @@ function renderSidebar() {
   const q = (document.getElementById("q").value || "").toLowerCase();
   const box = document.getElementById("sidebar");
   box.innerHTML = "";
+  let shown = 0;
   for (const grp of CATALOG) {
-    const ms = grp.methods.filter(m => !q || m.name.toLowerCase().includes(q) || (m.summary || "").toLowerCase().includes(q));
+    const grpHit = grp.namespace.toLowerCase().includes(q) || (grp.label || "").toLowerCase().includes(q);
+    const ms = grp.methods.filter(m => !q || grpHit
+      || m.name.toLowerCase().includes(q) || (m.summary || "").toLowerCase().includes(q));
     if (!ms.length) continue;
     const g = document.createElement("div"); g.className = "ns-group";
-    g.innerHTML = `<div class="ns-title"><span>${grp.label}</span><small>pb.${grp.namespace}</small></div>`;
+    g.innerHTML = `<div class="ns-title"><span>${esc(grp.label)}</span><small>pb.${esc(grp.namespace)}</small></div>`;
     for (const m of ms) {
       const el = document.createElement("div");
       el.className = "iface" + (CUR && CUR.ns === grp.namespace && CUR.m.name === m.name ? " active" : "");
-      el.innerHTML = `<span class="dot ${m.implemented ? "on" : "off"}"></span><span class="name">${m.name}</span>`;
+      el.innerHTML = `<span class="dot ${m.implemented ? "on" : "off"}"></span><span class="name">${esc(m.name)}</span>`;
       el.onclick = () => selectIface(grp.namespace, m);
       g.appendChild(el);
     }
-    box.appendChild(g);
+    box.appendChild(g); shown++;
   }
+  if (!shown) box.innerHTML = '<div class="muted" style="padding:10px 8px">无匹配接口</div>';
 }
 
-function pyVal(v, type) {
-  const t = (type || "").toLowerCase();
-  if (t.includes("int") || t.includes("float") || t.includes("bool")) return String(v);
-  if (t.includes("list")) return "[" + String(v).split(",").map(s => '"' + s.trim() + '"').join(", ") + "]";
-  return '"' + v + '"';
-}
-function exampleCall(ns, m) {
-  const ex = m.example || {};
-  const types = Object.fromEntries(m.params.map(p => [p.name, p.type]));
-  const args = Object.entries(ex).map(([k, v]) => k + "=" + pyVal(v, types[k])).join(", ");
-  return "pb." + ns + "." + m.name + "(" + args + ")";
-}
 function fillExample() {
   if (!CUR) return;
   const ex = CUR.m.example || {};
@@ -142,20 +142,22 @@ function selectIface(ns, m) {
       ' <span class="ty">' + esc(ph) + '</span></label><input data-p="' + esc(p.name) + '" data-t="' +
       esc(p.type) + '" value="' + esc(val) + '" placeholder="' + esc(ph) + '"></div>';
   }).join("");
-  const hasEx = Object.keys(ex).length > 0;
-  const exBlock = hasEx ? '<div class="card"><h3>参数调用示例</h3><div class="called">' +
-    esc(exampleCall(ns, m)) + '</div><button class="ghost" onclick="fillExample()">填入示例参数</button></div>' : "";
-  const noteBlock = m.note ? '<div class="note"><b>注意事项</b><div>' + esc(m.note) + '</div></div>' : "";
+  // 单一「说明」卡片:已实现接口用完整 docstring(含参数/返回/示例/注意),stub 用 note 兜底
+  const help = (m.doc && m.doc.trim()) ? m.doc : (m.note || m.summary || "—");
+  const exBtn = Object.keys(ex).length
+    ? '<button class="ghost" type="button" onclick="fillExample()">填入示例参数</button>' : '';
   document.getElementById("main").innerHTML =
-    '<div class="sig">pb.' + ns + '.' + m.name + '(' + m.params.map(p => p.name).join(", ") + ')' +
+    '<div class="sig">pb.' + esc(ns) + '.' + esc(m.name) + '(' + m.params.map(p => esc(p.name)).join(", ") + ')' +
     ' <span class="badge ' + (m.implemented ? 'on' : 'off') + '">' + (m.implemented ? '已实现' : '未实现') + '</span></div>' +
-    '<div class="doc">' + esc(m.doc || m.summary || "—") + '</div>' + noteBlock + exBlock +
-    '<div class="card"><h3>参数</h3>' + (fields || '<div style="color:var(--muted)">无参数</div>') +
-    '<button class="run" id="runBtn" onclick="run()">运行</button></div><div id="result"></div>';
+    '<div class="card help"><h3>说明</h3><pre class="ds">' + esc(help) + '</pre></div>' +
+    '<div class="card"><h3>参数</h3>' + (fields || '<div class="muted">无参数</div>') +
+    '<div class="actions"><button class="run" id="runBtn" onclick="run()">运行</button>' + exBtn + '</div></div>' +
+    '<div id="result"></div>';
 }
 
 async function run() {
   if (!CUR) return;
+  const myIface = CUR;   // 捕获当前接口,运行中若切换接口则丢弃过期结果,避免渲染错位
   const btn = document.getElementById("runBtn");
   btn.disabled = true; btn.textContent = "运行中…";
   const params = {};
@@ -163,14 +165,16 @@ async function run() {
   let j;
   try {
     const r = await fetch("/api/call", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ namespace: CUR.ns, method: CUR.m.name, params }) });
+      body: JSON.stringify({ namespace: myIface.ns, method: myIface.m.name, params }) });
     j = await r.json();
   } catch (e) { j = { ok: false, error: { type: "NetworkError", message: String(e) } }; }
+  if (CUR !== myIface) return;   // 用户已切换到别的接口,这次结果作废
   btn.disabled = false; btn.textContent = "运行";
   renderResult(j);
 }
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function cell(v){ if (v === null || v === undefined) return '<span class="muted">·</span>'; return typeof v === 'object' ? esc(JSON.stringify(v)) : esc(v); }
 
 function renderResult(j) {
   const box = document.getElementById("result");
@@ -184,11 +188,11 @@ function renderResult(j) {
   } else if (j.kind === "table") {
     const prov = Object.keys(j.attrs||{}).length ? `来源/溯源: ${esc(JSON.stringify(j.attrs))}` : '';
     const cols = j.columns.map(c=>`<th>${esc(c)}</th>`).join("");
-    const rows = j.rows.map(r=>`<tr>${r.map(v=>`<td>${v===null?'<span style="color:#cbd5e1">·</span>':esc(v)}</td>`).join("")}</tr>`).join("");
+    const rows = j.rows.map(r=>`<tr>${r.map(v=>`<td>${cell(v)}</td>`).join("")}</tr>`).join("");
     body = `<div class="prov">显示 ${j.shown} / 共 ${j.total_rows} 行　${prov}</div>
       <div class="tablewrap"><table><thead><tr>${cols}</tr></thead><tbody>${rows}</tbody></table></div>`;
   } else if (j.kind === "dict") {
-    const rows = Object.entries(j.data).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v===null?'·':esc(v)}</td></tr>`).join("");
+    const rows = Object.entries(j.data).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${cell(v)}</td></tr>`).join("");
     body = `<div class="tablewrap"><table><tbody>${rows}</tbody></table></div>`;
   } else {
     body = `<pre>${esc(j.data)}</pre>`;
@@ -200,7 +204,7 @@ function renderResult(j) {
 function showMatrix() {
   CUR = null; renderSidebar();
   const cols = Object.keys(CAPS[0]||{}).filter(k=>k!=="capability");
-  const head = `<th>能力</th>` + cols.map(c=>`<th>${c}</th>`).join("");
+  const head = `<th>能力</th>` + cols.map(c=>`<th>${esc(c)}</th>`).join("");
   const rows = CAPS.map(r=>`<tr><td>${esc(r.capability)}</td>${cols.map(c=>`<td>${esc(r[c])}</td>`).join("")}</tr>`).join("");
   document.getElementById("main").innerHTML =
     `<div class="sig">能力矩阵</div><div class="doc">三源能力参考(✅强 / 🔸部分 / ⚠️反爬脆 / ❌无)</div>
