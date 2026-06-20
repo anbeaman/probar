@@ -1,0 +1,2 @@
+# ReadTheDocs 构建文档站所需(无需安装 probar 本体)
+mkdocs-material>=9.5

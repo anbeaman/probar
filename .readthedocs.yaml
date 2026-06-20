@@ -1,0 +1,15 @@
+# ReadTheDocs 构建配置 —— 在 https://readthedocs.org 导入本仓库后自动生效。
+# 文档地址将是 https://probar.readthedocs.io/
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+mkdocs:
+  configuration: mkdocs.yml
+
+python:
+  install:
+    - requirements: docs/requirements.txt

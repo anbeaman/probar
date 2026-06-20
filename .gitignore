@@ -19,6 +19,9 @@ htmlcov/
 # probar 本地缓存(后续版本落盘缓存目录)
 .probar_cache/
 
+# mkdocs 文档站构建输出
+site/
+
 # IDE / OS
 .idea/
 .vscode/
