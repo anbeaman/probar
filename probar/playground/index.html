@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>probar 接口测试台</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --ink: #1f2329; --muted: #6b7280;
+    --line: #e5e7eb; --brand: #2563eb; --brand-weak: #eff4ff;
+    --ok: #16a34a; --err: #dc2626; --warn: #d97706; --code: #0f172a;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+         background: var(--bg); color: var(--ink); font-size: 14px; }
+  header { display: flex; align-items: baseline; gap: 12px; padding: 12px 18px;
+           background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 16px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header .spacer { flex: 1; }
+  header button { font-size: 12px; }
+  .layout { display: grid; grid-template-columns: 290px 1fr; height: calc(100vh - 49px); }
+  /* sidebar */
+  aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 10px; }
+  .search { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+  .ns-group { margin-bottom: 6px; }
+  .ns-title { font-size: 12px; font-weight: 600; color: var(--muted); padding: 8px 6px 4px; display: flex; justify-content: space-between; }
+  .ns-title small { font-family: var(--mono); font-weight: 400; }
+  .iface { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; cursor: pointer; }
+  .iface:hover { background: var(--bg); }
+  .iface.active { background: var(--brand-weak); color: var(--brand); }
+  .iface .name { font-family: var(--mono); font-size: 13px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .dot.on { background: var(--ok); } .dot.off { background: #cbd5e1; }
+  /* main */
+  main { overflow-y: auto; padding: 18px 22px; }
+  .empty { color: var(--muted); margin-top: 40px; text-align: center; }
+  .sig { font-family: var(--mono); font-size: 15px; font-weight: 600; }
+  .doc { color: var(--muted); margin: 6px 0 16px; }
+  .badge { font-size: 11px; padding: 2px 7px; border-radius: 999px; vertical-align: middle; }
+  .badge.on { background: #dcfce7; color: var(--ok); } .badge.off { background: #f1f5f9; color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card h3 { margin: 0 0 12px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .field { margin-bottom: 11px; }
+  .field label { display: block; font-size: 13px; margin-bottom: 4px; }
+  .field label .req { color: var(--err); } .field label .ty { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .field input { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-family: var(--mono); }
+  .run { background: var(--brand); color: #fff; border: 0; border-radius: 9px; padding: 9px 18px; font-size: 14px; cursor: pointer; }
+  .run:disabled { opacity: .5; cursor: default; }
+  .status { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
+  .pill { padding: 2px 9px; border-radius: 999px; font-weight: 600; font-size: 12px; }
+  .pill.ok { background: #dcfce7; color: var(--ok); } .pill.err { background: #fee2e2; color: var(--err); }
+  .called { font-family: var(--mono); font-size: 12px; color: var(--code); background: var(--bg); padding: 6px 9px; border-radius: 7px; overflow-x: auto; }
+  .prov { font-size: 12px; color: var(--muted); margin: 8px 0; font-family: var(--mono); }
+  .tablewrap { overflow: auto; max-height: 52vh; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-family: var(--mono); }
+  th, td { padding: 6px 9px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th { background: #fafbfc; position: sticky; top: 0; text-align: right; }
+  td:first-child, th:first-child { text-align: left; }
+  .errbox { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px; border-radius: 9px; font-size: 13px; }
+  .errbox .t { font-family: var(--mono); font-weight: 600; }
+  details { margin-top: 12px; } summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  pre { background: var(--code); color: #e2e8f0; padding: 12px; border-radius: 9px; overflow: auto; font-size: 12px; max-height: 40vh; }
+  .matrix td, .matrix th { text-align: center; } .matrix td:first-child { text-align: left; }
+</style>
+</head>
+<body>
+<header>
+  <h1>probar 接口测试台</h1>
+  <span class="sub">选数据源/接口 → 填参数 → 运行</span>
+  <span class="spacer"></span>
+  <button onclick="showMatrix()">能力矩阵</button>
+</header>
+<div class="layout">
+  <aside>
+    <input class="search" id="q" placeholder="搜索接口…" oninput="renderSidebar()" />
+    <div id="sidebar"></div>
+  </aside>
+  <main id="main"><div class="empty">← 从左侧选择一个接口</div></main>
+</div>
+
+<script>
+let CATALOG = [], CAPS = [], CUR = null;
+
+async function load() {
+  const r = await fetch("/api/interfaces");
+  const j = await r.json();
+  CATALOG = j.catalog; CAPS = j.capabilities;
+  renderSidebar();
+}
+
+function renderSidebar() {
+  const q = (document.getElementById("q").value || "").toLowerCase();
+  const box = document.getElementById("sidebar");
+  box.innerHTML = "";
+  for (const grp of CATALOG) {
+    const ms = grp.methods.filter(m => !q || m.name.toLowerCase().includes(q) || (m.doc || "").toLowerCase().includes(q));
+    if (!ms.length) continue;
+    const g = document.createElement("div"); g.className = "ns-group";
+    g.innerHTML = `<div class="ns-title"><span>${grp.label}</span><small>pb.${grp.namespace}</small></div>`;
+    for (const m of ms) {
+      const el = document.createElement("div");
+      el.className = "iface" + (CUR && CUR.ns === grp.namespace && CUR.m.name === m.name ? " active" : "");
+      el.innerHTML = `<span class="dot ${m.implemented ? "on" : "off"}"></span><span class="name">${m.name}</span>`;
+      el.onclick = () => selectIface(grp.namespace, m);
+      g.appendChild(el);
+    }
+    box.appendChild(g);
+  }
+}
+
+function selectIface(ns, m) {
+  CUR = { ns, m };
+  renderSidebar();
+  const main = document.getElementById("main");
+  const fields = m.params.map(p => {
+    const def = p.default === null || p.default === undefined ? "" : p.default;
+    const ph = p.type + (p.required ? "" : " · 可选") + (p.type.toLowerCase().includes("list") ? " · 逗号分隔" : "");
+    return `<div class="field">
+      <label>${p.name} ${p.required ? '<span class="req">*</span>' : ''} <span class="ty">${ph}</span></label>
+      <input data-p="${p.name}" data-t="${p.type}" value="${def}" placeholder="${ph}">
+    </div>`;
+  }).join("");
+  main.innerHTML = `
+    <div class="sig">pb.${ns}.${m.name}(${m.params.map(p=>p.name).join(", ")})
+      <span class="badge ${m.implemented?'on':'off'}">${m.implemented?'已实现':'未实现'}</span></div>
+    <div class="doc">${m.doc || "—"}</div>
+    <div class="card"><h3>参数</h3>${fields || '<div style="color:var(--muted)">无参数</div>'}
+      <button class="run" id="runBtn" onclick="run()">运行</button></div>
+    <div id="result"></div>`;
+}
+
+async function run() {
+  if (!CUR) return;
+  const btn = document.getElementById("runBtn");
+  btn.disabled = true; btn.textContent = "运行中…";
+  const params = {};
+  document.querySelectorAll("#main input[data-p]").forEach(i => { if (i.value !== "") params[i.dataset.p] = i.value; });
+  let j;
+  try {
+    const r = await fetch("/api/call", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ namespace: CUR.ns, method: CUR.m.name, params }) });
+    j = await r.json();
+  } catch (e) { j = { ok: false, error: { type: "NetworkError", message: String(e) } }; }
+  btn.disabled = false; btn.textContent = "运行";
+  renderResult(j);
+}
+
+function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function renderResult(j) {
+  const box = document.getElementById("result");
+  const head = `<div class="status">
+      <span class="pill ${j.ok?'ok':'err'}">${j.ok?'成功':'错误'}</span>
+      ${j.elapsed_ms!=null?`<span>${j.elapsed_ms} ms</span>`:''}
+      ${j.called?`<span class="called">${esc(j.called)}</span>`:''}</div>`;
+  let body = "";
+  if (!j.ok) {
+    body = `<div class="errbox"><span class="t">${esc(j.error?.type||'Error')}</span> — ${esc(j.error?.message||'')}</div>`;
+  } else if (j.kind === "table") {
+    const prov = Object.keys(j.attrs||{}).length ? `来源/溯源: ${esc(JSON.stringify(j.attrs))}` : '';
+    const cols = j.columns.map(c=>`<th>${esc(c)}</th>`).join("");
+    const rows = j.rows.map(r=>`<tr>${r.map(v=>`<td>${v===null?'<span style="color:#cbd5e1">·</span>':esc(v)}</td>`).join("")}</tr>`).join("");
+    body = `<div class="prov">显示 ${j.shown} / 共 ${j.total_rows} 行　${prov}</div>
+      <div class="tablewrap"><table><thead><tr>${cols}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  } else if (j.kind === "dict") {
+    const rows = Object.entries(j.data).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v===null?'·':esc(v)}</td></tr>`).join("");
+    body = `<div class="tablewrap"><table><tbody>${rows}</tbody></table></div>`;
+  } else {
+    body = `<pre>${esc(j.data)}</pre>`;
+  }
+  const raw = `<details><summary>原始 JSON</summary><pre>${esc(JSON.stringify(j,null,2))}</pre></details>`;
+  box.innerHTML = `<div class="card">${head}${body}${raw}</div>`;
+}
+
+function showMatrix() {
+  CUR = null; renderSidebar();
+  const cols = Object.keys(CAPS[0]||{}).filter(k=>k!=="capability");
+  const head = `<th>能力</th>` + cols.map(c=>`<th>${c}</th>`).join("");
+  const rows = CAPS.map(r=>`<tr><td>${esc(r.capability)}</td>${cols.map(c=>`<td>${esc(r[c])}</td>`).join("")}</tr>`).join("");
+  document.getElementById("main").innerHTML =
+    `<div class="sig">能力矩阵</div><div class="doc">三源能力参考(✅强 / 🔸部分 / ⚠️反爬脆 / ❌无)</div>
+     <div class="card"><div class="tablewrap"><table class="matrix"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+load();
+</script>
+</body>
+</html>

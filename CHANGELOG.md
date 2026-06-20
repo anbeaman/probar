@@ -11,6 +11,8 @@
 - 共享基础设施:结构化异常模型、证券代码归一化、令牌桶限流、TTL 缓存、HTTP 传输(重试+限流)、能力矩阵 `pb.capabilities()`。
 - 离线解析测试(冻结真实响应 fixture)、GitHub CI(ruff / mypy / pytest)与每日 canary smoke。
 - 通达信 / 同花顺命名空间已声明接口面(stub),计划 v0.2 / v0.3 落地真实实现。
+- 本地接口可视化测试台(`probar[playground]`,`python -m probar.playground`):网页列出全部接口,可选接口、填参数、运行,查看输入/输出 + 来源 + 耗时。
+- 工程规范 `docs/ENGINEERING_GUIDE.md` + 贡献指南 + `.github` issue/PR 模板 + `SECURITY.md`。
 
 ### 说明
 

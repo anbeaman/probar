@@ -13,7 +13,19 @@
 pip install probar                # 核心:东方财富(pb.dc) + 通达信(pb.tdx)
 pip install "probar[ths]"         # 实验性:同花顺 / 问财(pb.ths,反爬 best-effort)
 pip install "probar[async]"       # 异步全市场扫描(v0.2)
+pip install "probar[playground]"  # 本地接口可视化测试台
 ```
+
+## 接口测试台(本地)
+
+一个可视化网页,列出全部接口,可选接口、填参数、运行,查看输入/输出(表格 + 来源 + 耗时):
+
+```bash
+pip install "probar[playground]"
+python -m probar.playground        # 打开 http://127.0.0.1:8787
+```
+
+左侧选数据源/接口(●已实现 / ○未实现)→ 填参数 → 运行。仅本地开发测试用,会真实联网取数。
 
 ## 按数据源拆分的命名空间
 
