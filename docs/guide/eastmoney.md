@@ -158,10 +158,35 @@ pb.dc.financials(symbol)       # -> DataFrame
 
 ---
 
+## securities — 全市场代码表
+
+```python
+pb.dc.securities(page_size=1000)   # -> DataFrame
+```
+
+- **参数**:`page_size` 每页条数(默认 1000,分页拉全)。
+- **返回列**:`symbol`(规范化,如 `600519.SH`)、`code`(原始 6 位)、`name`、`market`(SH/SZ/BJ)、`asset_type`(首版固定 `stock`)。`market` 由代码前缀推断。
+
+```python
+>>> df = pb.dc.securities()
+>>> df.shape[1], list(df.columns)
+(5, ['symbol', 'code', 'name', 'market', 'asset_type'])
+>>> df.head(2)
+      symbol    code  name market asset_type
+0  000001.SZ  000001  平安银行     SZ      stock
+1  600519.SH  600519  贵州茅台     SH      stock
+```
+
+!!! warning "注意"
+    - 首版**只含沪深京 A 股**(不含 ETF / 可转债 / 指数,留待后续小版本)。
+    - 全市场约 5800+ 只,分页拉全(受内置限流节流);请勿盘中高频调用。
+
+---
+
 ## 暂未实现(命名空间里已声明,调用抛 `NotImplementedError`)
 
 `intraday_hist`(历史分时)、`ticks`(分笔)、`hsgt`(北向/沪深港通)、`holders/unlock/dividend`、
-`industry/concept(_cons)`、`securities`、`xdxr` —— 计划 v0.2 / v0.3 落地。
+`industry/concept(_cons)`、`xdxr` —— 计划 v0.2 / v0.3 落地。
 
 !!! note "北向资金"
     北向(沪深港通)**盘中实时**买卖/净流入自 2024 年起已停止披露,后续 `hsgt` 只会提供额度与盘后/EOD 数据。

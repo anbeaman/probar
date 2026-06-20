@@ -10,8 +10,9 @@ from typing import Any
 
 import pandas as pd
 
+from ...core import symbols
 from ...core.errors import NoData, SchemaChanged
-from ...core.models import KLINE_COLUMNS
+from ...core.models import KLINE_COLUMNS, SECURITIES_COLUMNS
 from . import endpoints as ep
 from .endpoints import KLINE_FIELDS
 
@@ -167,3 +168,33 @@ def parse_datacenter(
     if missing:
         raise SchemaChanged(f"东财 {interface} 缺少字段 {missing}")
     return pd.DataFrame(data)[list(mapping)].rename(columns=mapping)
+
+
+def parse_securities(payload: dict[str, Any], *, asset_type: str = "stock") -> pd.DataFrame:
+    """解析 clist 全市场列表的**一页** -> [symbol, code, name, market, asset_type]。
+
+    market 由代码前缀推断(``symbols.normalize``),比上游 f13 更可靠。
+    """
+    data = payload.get("data")
+    if data is None:
+        raise NoData("东财 securities 无数据")
+    diff = data.get("diff")
+    if diff is None:
+        raise SchemaChanged(f"东财 securities 响应缺少 'diff' 字段: keys={list(data)}")
+
+    rows = []
+    for r in diff:
+        code = r.get("f12")
+        if not code or not str(code).isdigit():
+            raise SchemaChanged(f"东财 securities 行 f12(代码)非法: {r}")
+        sym = symbols.normalize(str(code))
+        rows.append(
+            {
+                "symbol": sym.ts_code,
+                "code": str(code),
+                "name": r.get("f14"),
+                "market": sym.market,
+                "asset_type": asset_type,
+            }
+        )
+    return pd.DataFrame(rows, columns=SECURITIES_COLUMNS)

@@ -42,6 +42,9 @@ QUOTE_COLUMNS = [
     "pct_chg",
 ]
 
+# 全市场证券列表(securities)
+SECURITIES_COLUMNS = ["symbol", "code", "name", "market", "asset_type"]
+
 
 def ensure_columns(
     df: pd.DataFrame, required: Iterable[str], *, source: str, interface: str

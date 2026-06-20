@@ -13,6 +13,7 @@ from typing import Any
 import pandas as pd
 
 from ...core import symbols
+from ...core.errors import NoData, SchemaChanged
 from ...core.models import QUOTE_COLUMNS, ensure_columns, stamp
 from ..base import HttpProvider
 from . import endpoints as ep
@@ -255,8 +256,60 @@ class EastMoney(HttpProvider):
     def concept_cons(self, board: str) -> pd.DataFrame:
         raise _todo("concept_cons", "v0.3")
 
-    def securities(self) -> pd.DataFrame:
-        raise _todo("securities")
+    def securities(self, *, page_size: int = 1000) -> pd.DataFrame:
+        """全市场 A 股(沪深京)代码表。
+
+        参数: page_size 每页条数(默认 1000,分页拉全,受统一限流器节流)。
+        返回列: symbol(规范化,如 600519.SH), code(原始6位), name,
+            market(SH/SZ/BJ), asset_type(首版固定 "stock")。market 由代码前缀推断。
+        说明: 首版只含 A 股;ETF/可转债/指数留待后续小版本。
+        示例:
+            >>> df = pb.dc.securities()
+            >>> df.shape[1], list(df.columns)
+            (5, ['symbol', 'code', 'name', 'market', 'asset_type'])
+            >>> df.head(1).to_dict("records")
+            [{'symbol': '000001.SZ', 'code': '000001', 'name': '平安银行',
+              'market': 'SZ', 'asset_type': 'stock'}]
+        """
+        frames: list[pd.DataFrame] = []
+        seen: set[str] = set()
+        total: int | None = None
+        for page in range(1, 101):  # 最多 100 页,防失控
+            params = {
+                "pn": page,
+                "pz": page_size,
+                "po": 1,
+                "np": 1,
+                "fltt": 2,
+                "invt": 2,
+                "fid": "f12",
+                "fs": ep.SECURITIES_FS,
+                "fields": ep.SECURITIES_FIELDS,
+            }
+            payload = self._http.get_json(
+                ep.CLIST_URL, params, referer="https://quote.eastmoney.com/"
+            )
+            data = payload.get("data")
+            if total is None:
+                total = int((data or {}).get("total") or 0)
+            # 第 2 页起返回空/缺 diff = 正常翻过末页;第一页则交给 parser 正确抛 NoData/SchemaChanged
+            if page > 1 and (not isinstance(data, dict) or not data.get("diff")):
+                break
+            df = parsers.parse_securities(payload)
+            if df.empty:  # 末页(diff == [])
+                break
+            fresh = df[~df["symbol"].isin(seen)]
+            if not fresh.empty:
+                frames.append(fresh)
+                seen.update(fresh["symbol"].tolist())
+            # 按**去重后**的唯一数判断,避免跨页重复导致提前停而漏证券
+            if total and len(seen) >= total:
+                break
+        if not frames:
+            if total and total > 0:
+                raise SchemaChanged(f"东财 securities total={total} 但未取到任何数据")
+            raise NoData("东财 securities 无数据")
+        return stamp(pd.concat(frames, ignore_index=True), source=self.name, total=total)
 
     def xdxr(self, symbol: str) -> pd.DataFrame:
         raise _todo("xdxr", "v0.3")
