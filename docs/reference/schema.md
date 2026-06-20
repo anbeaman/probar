@@ -52,5 +52,5 @@
 
 ## 溯源 `df.attrs`
 
-`df.attrs` 含 `source`(来源,如 `dc`)等;`pb.tdx.quotes` 还写 `schema_version`、`server`(实际所用服务器 `(host, port)`),`pb.auto` 还会写 `fallback_reason`。
+`df.attrs` 含 `source`(来源,如 `dc`)等;`pb.tdx.quotes` 还写 `schema_version`、`server`(实际所用服务器 `(host, port)`)。
 ⚠️ `df.attrs` 不是稳定公共 API(pandas 运算/保存中易丢),仅作调试/溯源,**别用它承载业务必需字段**。

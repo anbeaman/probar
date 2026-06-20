@@ -1,6 +1,6 @@
 """probar 接口可视化测试台(本地)。
 
-自省 pb.dc / pb.tdx / pb.ths / pb.auto 的全部接口,前端可选接口、填参数、运行,
+自省 pb.dc / pb.tdx / pb.ths 的全部接口,前端可选接口、填参数、运行,
 查看输入与输出(表格 + 来源 provenance + 耗时),错误也清晰展示。
 
 启动::
@@ -28,8 +28,8 @@ from probar.core.capabilities import capabilities
 
 app = FastAPI(title="probar playground", docs_url="/docs")
 
-NAMESPACES: dict[str, Any] = {"dc": pb.dc, "tdx": pb.tdx, "ths": pb.ths, "auto": pb.auto}
-NS_LABEL = {"dc": "东方财富", "tdx": "通达信", "ths": "同花顺", "auto": "跨源故障转移"}
+NAMESPACES: dict[str, Any] = {"dc": pb.dc, "tdx": pb.tdx, "ths": pb.ths}
+NS_LABEL = {"dc": "东方财富", "tdx": "通达信", "ths": "同花顺"}
 _SKIP = {"close"}  # 生命周期方法,非数据接口
 
 _EMPTY = inspect.Parameter.empty
@@ -65,14 +65,13 @@ EXAMPLES: dict[str, dict] = {
         "params": {"symbol": "600519.SH"},
         "note": "按报告期,一行一期;金额=元,EPS/BPS=元,同比/ROE=%。",
     },
-    "auto.kline": {
-        "params": {"symbol": "000001.SZ", "prefer": "dc,tdx"},
-        "note": "默认不参与;仅网络/限频/不支持/未实现时降级,SchemaChanged/NoData 直接抛;"
-        "来源见 df.attrs。",
+    "tdx.quotes": {
+        "params": {"symbol_list": "000001.SZ,600519.SH"},
+        "note": "通达信批量实时五档;一次可多只(自动分批<=80)。name 恒 None;含五档/内外盘/现手。",
     },
-    "auto.quote": {
-        "params": {"symbol": "000001.SZ", "prefer": "dc,tdx"},
-        "note": "同 auto.kline 的降级策略。",
+    "tdx.quote": {
+        "params": {"symbol": "600519.SH"},
+        "note": "单只实时五档,返回 dict;无效/停牌无数据抛 NoData。",
     },
 }
 

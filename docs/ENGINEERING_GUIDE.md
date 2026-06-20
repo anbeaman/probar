@@ -22,7 +22,7 @@
 
 ## 1. 接口规范 🔒
 
-- **命名**:`pb.<source>.<resource>()`,如 `pb.dc.kline()`。`pb.auto` 只做路由,**不引入新语义**。
+- **命名**:`pb.<source>.<resource>()`,如 `pb.dc.kline()`。**各源独立**:不做"主源",不做跨源替换/故障转移。
 - **只暴露真实支持的接口**:某源没有的能力,命名空间里**不存在该方法**(访问得到 `AttributeError`),
   而不是运行时抛"不支持"。能力矩阵见 `pb.capabilities()`(三源能力**参考**,非方法清单)。
 - **参数约定**:常用参数统一命名,**但非适用参数不得伪造**:
@@ -40,7 +40,7 @@
   | 异常 | 含义 |
   |---|---|
   | `InvalidSymbol` | 代码非法/无法解析 |
-  | `NotSupported` | 该源不支持此能力(命名空间无此方法即 `AttributeError`;本异常用于 auto 路由选定源不支持、或参数组合/运行期能力探测不支持) |
+  | `NotSupported` | 该源不支持此能力(命名空间无此方法即 `AttributeError`;本异常用于参数组合/运行期能力探测不支持) |
   | `NetworkError` | 网络/超时/源不可用(穷尽重试后) |
   | `RateLimited` | 被限频 |
   | `NoData` | 源信号无数据(空区间/非交易日/无此记录) |
@@ -137,7 +137,7 @@
 
 - **库代码不主动配置全局 logging**(不 `basicConfig`、不加 handler);只 `logging.getLogger("probar.<module>")`。
 - 级别:
-  - `INFO`:请求开始/结束、缓存命中、fallback 发生。
+  - `INFO`:请求开始/结束、缓存命中。
   - `WARNING`:重试、限频、降级、字段缺失。
   - `ERROR`:最终失败、`SchemaChanged`。
 - 🔒 **禁止记录** cookie / token / 完整 header / query 中的敏感项(有测试断言)。
@@ -149,7 +149,7 @@
 
 - 站点用 `mkdocs-material`,**按源生成**;每接口标:**支持/不支持/字段(含单位)/限制/质量档**。
 - 🔒 能力矩阵与文档接口表**自动校验**:新增接口但未更新 capabilities/docs → CI 失败。
-- 教程:`quickstart`(install→第一条 K 线)+ `cookbook`(资金流选股、龙虎榜、批量快照、auto 降级)。
+- 教程:`quickstart`(install→第一条 K 线)+ `cookbook`(资金流选股、龙虎榜、批量快照)。
 - 🔒 **CHANGELOG 纪律**:非 docs-only 的 PR 必须带 `CHANGELOG.md` 条目(CI 检查)。
 
 ---

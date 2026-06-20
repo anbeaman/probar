@@ -42,7 +42,6 @@ nav:
       - 东方财富 pb.dc: guide/eastmoney.md
       - 通达信 pb.tdx: guide/tdx.md
       - 同花顺 pb.ths: guide/ths.md
-      - 跨源 pb.auto: guide/auto.md
   - 参考:
       - 能力矩阵: reference/capabilities.md
       - 错误模型: reference/errors.md

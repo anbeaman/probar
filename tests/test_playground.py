@@ -16,7 +16,7 @@ def test_interfaces_catalog():
     assert r.status_code == 200
     j = r.json()
     nss = {g["namespace"] for g in j["catalog"]}
-    assert {"dc", "tdx", "ths", "auto"} <= nss
+    assert nss == {"dc", "tdx", "ths"}            # 恰好三源;auto 若回归即失败
 
     dc = next(g for g in j["catalog"] if g["namespace"] == "dc")
     impl = {m["name"]: m["implemented"] for m in dc["methods"]}

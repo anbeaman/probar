@@ -32,29 +32,25 @@ python -m probar.playground        # 打开 http://127.0.0.1:8787
 每个命名空间**只暴露该源真实支持的接口**。`pb.capabilities()` 记录三源能力(参考),
 各命名空间暴露其中已实现或计划实现的方法子集。
 
-> **v0.1 已实现**:`pb.dc` 的 `quote / quotes / kline / intraday / fund_flow / lhb / financials`(东财全链路)。
-> `pb.tdx` / `pb.ths` 的接口已在命名空间中声明,调用会抛 `NotImplementedError` 并注明计划版本(v0.2 通达信 / v0.3 同花顺)。
+> **已实现**:`pb.dc` 的 `quote / quotes / kline / intraday / fund_flow / lhb / financials / securities`(东财全链路);
+> `pb.tdx` 的 `quotes / quote`(批量实时五档,clean-room 自写二进制协议、纯标准库零依赖)。
+> 其余接口已在命名空间中声明,调用抛 `NotImplementedError` 并注明计划版本;`pb.ths`(同花顺,实验性)计划 v0.3。
 
 ```python
 import probar as pb
 
-# 东方财富(最全,默认主源)
+# 东方财富(HTTP/JSON,数据最全)
 pb.dc.quote("600519.SH")
 pb.dc.kline("600519.SH", freq="1d", adjust="qfq")
 pb.dc.fund_flow("000001.SZ")
 
-# 通达信(行情底座:批量实时 / 历史分钟 / 历史逐笔)
-pb.tdx.ticks_hist("000001.SZ", date="2026-06-19")
-pb.tdx.kline("000001.SZ", freq="1m", adjust="qfq")   # 内部用 xdxr 自算复权
+# 通达信(自写二进制协议:批量实时五档;历史分钟/逐笔规划中)
+pb.tdx.quotes(["000001.SZ", "600519.SH"])   # 一次多只,含 L1 五档盘口
 
 # 同花顺(题材增强:问财 / 概念,实验性)
 pb.ths.wencai("近5日主力净流入为正且市值<100亿")
 
-# 跨源故障转移(可选,默认不参与;结果带来源标注)
-df = pb.auto.kline("000001.SZ", prefer=["dc", "tdx"])
-df.attrs["source"], df.attrs.get("fallback_reason")
-
-# 能力矩阵
+# 能力矩阵(各源能力参考;各源数据独立,不互相替换)
 pb.capabilities()
 ```
 
@@ -70,7 +66,7 @@ dc.kline("000001.SZ")
 
 | 源 | 命名空间 | 定位 | 强项 | 短板 |
 |---|---|---|---|---|
-| 东方财富 | `pb.dc` | 默认主源 | 实时/复权K/资金流/龙虎榜/财报/多市场最全 | 历史逐笔无;北向实时已停披露 |
+| 东方财富 | `pb.dc` | 综合最全(HTTP) | 实时/复权K/资金流/龙虎榜/财报/多市场最全 | 历史逐笔无;北向实时已停披露 |
 | 通达信 | `pb.tdx` | 行情底座 | 批量实时、历史分钟、**历史逐笔** | 无资金流/龙虎榜/北向;复权需自算 |
 | 同花顺 | `pb.ths` | 题材增强(实验) | **问财 NL 选股**、最细概念题材 | 全程反爬,best-effort |
 
@@ -78,8 +74,8 @@ dc.kline("000001.SZ")
 
 ## 路线图
 
-- **v0.1**(当前):东财 `quote/kline` 全链路 + 统一 schema + 命名空间骨架 + 离线测试 + GitHub smoke + PyPI。
-- **v0.2**:通达信(服务器池 + 业务探针 + 异步全市场)+ 国内 canary 节点(实网巡检自动开 Issue)。
+- **v0.1**:东财全链路(`quote/quotes/kline/intraday/fund_flow/lhb/financials/securities`)+ 统一 schema + 命名空间骨架 + 离线测试 + CI + PyPI。
+- **v0.2**(进行中):通达信 **clean-room 二进制协议**(已落地 `quotes/quote` 五档 + 服务器池业务探针)→ 续做 `kline/intraday/ticks/xdxr`;异步全市场 + 国内 canary 节点。
 - **v0.3**:数据质量标记 + 状态页 + 同花顺(问财/概念,实验性)。
 - 暂缓:港美/期货/基金、指标层。
 
