@@ -19,6 +19,20 @@
 
 `symbol, name, price, open, high, low, prev_close, volume(手), amount(元), pct_chg(%)`。
 
+### pb.tdx.quotes / quote 额外列(L1 五档)
+
+通达信在上述核心列外,额外提供 L1 盘口五档与内外盘(`schema_version = tdx.quote/1`):
+
+| 列 | 含义 | 单位 |
+|---|---|---|
+| `bid1..bid5` / `ask1..ask5` | 买一~五 / 卖一~五 价 | 元 |
+| `bid_vol1..bid_vol5` / `ask_vol1..ask_vol5` | 各档挂单量 | 手 |
+| `cur_vol` | 现手(最新一笔) | 手 |
+| `inner_vol` / `outer_vol` | 内盘(主动卖) / 外盘(主动买) | 手 |
+| `servertime` | 服务器时间,如 `14:59:58.376` | 字符串 |
+
+注:`name` 在通达信侧**恒为 None**(协议不返回名称),需要名称用 `pb.dc` 或 `tdx.securities` 映射。
+
 ## intraday / 当日分时
 
 `symbol, time, open, high, low, close, volume(手), amount(元), avg(当日均价, 元)`。
@@ -38,5 +52,5 @@
 
 ## 溯源 `df.attrs`
 
-`df.attrs` 含 `source`(来源,如 `dc`)等;`pb.auto` 还会写 `fallback_reason`。
+`df.attrs` 含 `source`(来源,如 `dc`)等;`pb.tdx.quotes` 还写 `schema_version`、`server`(实际所用服务器 `(host, port)`),`pb.auto` 还会写 `fallback_reason`。
 ⚠️ `df.attrs` 不是稳定公共 API(pandas 运算/保存中易丢),仅作调试/溯源,**别用它承载业务必需字段**。

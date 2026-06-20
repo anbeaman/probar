@@ -63,6 +63,7 @@ def normalize(symbol: str) -> Symbol:
 
 _EM_MARKET = {SH: "1", SZ: "0", BJ: "0"}
 _TDX_MARKET = {SZ: 0, SH: 1, BJ: 2}
+_TDX_MARKET_REV = {0: SZ, 1: SH, 2: BJ}
 
 
 def to_eastmoney_secid(symbol: str) -> str:
@@ -75,3 +76,14 @@ def to_tdx(symbol: str) -> tuple[int, str]:
     """通达信 (market, code),market: 0=深 1=沪 2=北。"""
     sym = normalize(symbol)
     return _TDX_MARKET[sym.market], sym.code
+
+
+def from_tdx(market: int, code: str) -> Symbol:
+    """通达信 (market, code) -> :class:`Symbol`。market: 0=深 1=沪 2=北。
+
+    把行情响应里的数字 market 还原为 probar 规范市场,避免 pytdx 的 market 编码外泄到公共 API。
+    """
+    try:
+        return Symbol(str(code), _TDX_MARKET_REV[int(market)])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError(f"无法识别的通达信 market={market!r} code={code!r}") from None

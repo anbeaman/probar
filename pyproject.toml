@@ -30,11 +30,13 @@ dependencies = [
 ths = []
 # 异步全市场扫描,计划 v0.2 落地
 async = []
+# 通达信:二进制 TCP 协议,依赖 pytdx(MIT;封在 transport 层后,可随时替换 / vendor)
+tdx = ["pytdx>=1.72"]
 # 本地接口可视化测试台:python -m probar.playground
 playground = ["fastapi>=0.110", "uvicorn>=0.29"]
 # 构建文档站(ReadTheDocs / 本地 mkdocs serve)
 docs = ["mkdocs-material>=9.5"]
-dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10", "fastapi>=0.110", "uvicorn>=0.29"]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10", "fastapi>=0.110", "uvicorn>=0.29", "pytdx>=1.72"]
 
 [project.urls]
 Homepage = "https://github.com/anbeaman/probar"

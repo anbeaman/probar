@@ -18,8 +18,8 @@ from __future__ import annotations
 import sys
 
 import probar as pb
-from probar.core.errors import NetworkError, RateLimited, SchemaChanged
-from probar.core.models import SECURITIES_COLUMNS
+from probar.core.errors import NetworkError, NotSupported, RateLimited, SchemaChanged
+from probar.core.models import QUOTE_COLUMNS, SECURITIES_COLUMNS
 
 PROBES = ["600519.SH", "000001.SZ"]
 
@@ -62,11 +62,30 @@ def classify_securities() -> tuple[str, str]:
     return "ok", f"{n_uniq} 只,市场 {sorted(markets)}"
 
 
+def classify_tdx_quote() -> tuple[str, str]:
+    try:
+        df = pb.tdx.quotes(PROBES)
+    except NotSupported as e:
+        # 环境未装 pytdx extra:软失败(不算硬),境内 canary 节点会装齐
+        return "network", f"跳过(pytdx 未安装): {e}"
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    if [c for c in QUOTE_COLUMNS if c not in df.columns]:
+        return "schema", f"缺核心列: 实得 {list(df.columns)[:6]}…"
+    if df.empty or (df["price"] <= 0).any():
+        return "data", f"现价异常: {df['price'].tolist()}"
+    bad = df[(df["ask1"] > 0) & (df["bid1"] > df["ask1"])]
+    if not bad.empty:
+        return "data", f"bid1>ask1(盘口错乱): {bad['symbol'].tolist()}"
+    return "ok", f"{len(df)} 只五档,server={df.attrs.get('server')}"
+
+
 def main() -> int:
     results: list[tuple[str, str, str]] = [
         (f"dc.kline {s}", *classify_kline(s)) for s in PROBES
     ]
     results.append(("dc.securities", *classify_securities()))
+    results.append(("tdx.quotes", *classify_tdx_quote()))
     hard = [r for r in results if r[1] in ("schema", "data")]
 
     for label, status, detail in results:
