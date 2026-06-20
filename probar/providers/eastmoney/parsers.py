@@ -1,0 +1,169 @@
+"""东方财富响应 -> 统一 schema 的纯函数解析器。
+
+刻意做成"无网络、纯函数":输入是已解析的 JSON dict,输出是 DataFrame / dict。
+这样可以用冻结样本做确定性离线单测(测 parser,不测网络)。
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pandas as pd
+
+from ...core.errors import NoData, SchemaChanged
+from ...core.models import KLINE_COLUMNS
+from . import endpoints as ep
+from .endpoints import KLINE_FIELDS
+
+
+def parse_kline(payload: dict[str, Any], *, symbol: str) -> pd.DataFrame:
+    """解析 K 线接口返回,产出含 :data:`KLINE_COLUMNS` 的 DataFrame。"""
+    data = payload.get("data")
+    if data is None:
+        # rc 非 0 或 data 为 null:东财对停牌/无数据/错误代码都可能返回 data=null
+        raise NoData(f"东财 kline 无数据: {symbol}")
+    klines = data.get("klines")
+    if klines is None:
+        raise SchemaChanged(f"东财 kline 响应缺少 'klines' 字段: keys={list(data)}")
+    if not klines:
+        raise NoData(f"东财 kline 区间无数据: {symbol}")
+
+    rows = []
+    for line in klines:
+        parts = line.split(",")
+        if len(parts) < len(KLINE_FIELDS):
+            raise SchemaChanged(
+                f"东财 kline 单行字段数={len(parts)},期望>={len(KLINE_FIELDS)}: {line!r}"
+            )
+        rows.append(dict(zip(KLINE_FIELDS, parts, strict=False)))
+
+    df = pd.DataFrame(rows)
+    df["symbol"] = symbol
+    df["date"] = pd.to_datetime(df["date"])
+    num_cols = ["open", "high", "low", "close", "volume", "amount", "pct_chg", "turnover"]
+    for col in num_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    # 收盘价是 K 线最核心字段;若解析后为 NaN,说明上游字段顺序/格式变了,别静默返回脏数据
+    if df["close"].isna().any():
+        raise SchemaChanged(f"东财 kline 收盘价解析为 NaN,字段格式可能已变更: {symbol}")
+    return df[KLINE_COLUMNS]
+
+
+def parse_quote(payload: dict[str, Any], *, symbol: str) -> dict[str, Any]:
+    """解析单只实时快照。东财价格字段为放大整数,按 f59(小数位)还原。"""
+    data = payload.get("data")
+    if data is None:
+        raise NoData(f"东财 quote 无数据: {symbol}")
+
+    decimals = data.get("f59")
+    try:
+        scale = 10 ** int(decimals)  # 兼容 int / float / 数字字符串
+    except (TypeError, ValueError):
+        scale = 100
+
+    def price(code: str) -> float | None:
+        v = data.get(code)
+        if v is None or v == "-":
+            return None
+        try:
+            return round(float(v) / scale, 4)
+        except (TypeError, ValueError):
+            return None
+
+    name = data.get("f58")
+    latest = price("f43")
+    if name is None and latest is None:
+        raise NoData(f"东财 quote 空响应(无价无名,可能是无效代码): {symbol}")
+
+    return {
+        "symbol": symbol,
+        "name": name,
+        "price": latest,
+        "open": price("f46"),
+        "high": price("f44"),
+        "low": price("f45"),
+        "prev_close": price("f60"),
+        "volume": data.get("f47"),
+        "amount": data.get("f48"),
+        "pct_chg": (data.get("f170") / 100 if isinstance(data.get("f170"), (int, float)) else None),
+    }
+
+
+def _klines_to_df(
+    payload: dict[str, Any],
+    *,
+    key: str,
+    fields: list[str],
+    numeric: list[str],
+    symbol: str,
+    interface: str,
+) -> pd.DataFrame:
+    """通用:东财 ``data[key]`` 里逗号分隔的字符串数组 -> DataFrame。"""
+    data = payload.get("data")
+    if data is None:
+        raise NoData(f"东财 {interface} 无数据: {symbol}")
+    lines = data.get(key)
+    if lines is None:
+        raise SchemaChanged(f"东财 {interface} 响应缺少 '{key}' 字段: keys={list(data)}")
+    if not lines:
+        raise NoData(f"东财 {interface} 区间无数据: {symbol}")
+
+    rows = []
+    for line in lines:
+        parts = line.split(",")
+        if len(parts) < len(fields):
+            raise SchemaChanged(
+                f"东财 {interface} 单行字段数={len(parts)},期望>={len(fields)}: {line!r}"
+            )
+        rows.append(dict(zip(fields, parts, strict=False)))
+
+    df = pd.DataFrame(rows)
+    df["symbol"] = symbol
+    for col in numeric:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
+def parse_fflow(payload: dict[str, Any], *, symbol: str) -> pd.DataFrame:
+    """解析个股资金流(daykline)。"""
+    df = _klines_to_df(
+        payload, key="klines", fields=ep.FFLOW_FIELDS, numeric=ep.FFLOW_NUMERIC,
+        symbol=symbol, interface="fund_flow",
+    )
+    df["date"] = pd.to_datetime(df["date"])
+    bad = [c for c in ("main", "close", "pct_chg") if df[c].isna().any()]
+    if bad:
+        raise SchemaChanged(f"东财 fund_flow 字段 {bad} 解析为 NaN,字段格式可能已变更: {symbol}")
+    return df[["symbol", "date", *ep.FFLOW_NUMERIC]]
+
+
+def parse_trends(payload: dict[str, Any], *, symbol: str) -> pd.DataFrame:
+    """解析当日分时(trends2)。"""
+    df = _klines_to_df(
+        payload, key="trends", fields=ep.TRENDS_FIELDS, numeric=ep.TRENDS_NUMERIC,
+        symbol=symbol, interface="intraday",
+    )
+    df["time"] = pd.to_datetime(df["time"])
+    return df[["symbol", "time", "open", "high", "low", "close", "volume", "amount", "avg"]]
+
+
+def parse_datacenter(
+    payload: dict[str, Any], *, mapping: dict[str, str], interface: str
+) -> pd.DataFrame:
+    """解析数据中心(datacenter-web v1)结构化 JSON,按 ``mapping`` 选列重命名。"""
+    result = payload.get("result")
+    if result is None:
+        # datacenter 对"无匹配数据"通常返回 result=null
+        if payload.get("success"):
+            raise NoData(f"东财 {interface} 无数据")
+        raise SchemaChanged(f"东财 {interface} 响应异常:result=null 且 success 非真")
+    if not isinstance(result, dict) or "data" not in result:
+        raise SchemaChanged(f"东财 {interface} 响应缺少 result.data 结构")
+    data = result["data"]
+    if not data:
+        raise NoData(f"东财 {interface} 无数据")
+    # 检查**所有行**都含 mapping 字段,避免部分行缺字段被 pandas 静默补 NaN
+    missing = [k for k in mapping if not all(k in row for row in data)]
+    if missing:
+        raise SchemaChanged(f"东财 {interface} 缺少字段 {missing}")
+    return pd.DataFrame(data)[list(mapping)].rename(columns=mapping)

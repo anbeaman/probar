@@ -1,0 +1,5 @@
+# 统一以 LF 存储文本文件,避免跨平台 CRLF 噪声
+* text=auto eol=lf
+
+# 二进制/数据样本按原样
+*.json text eol=lf

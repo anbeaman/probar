@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / type / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# probar 本地缓存(后续版本落盘缓存目录)
+.probar_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

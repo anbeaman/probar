@@ -1,0 +1,22 @@
+name: canary
+
+# 每日金丝雀巡检(v0.1:GitHub Actions 轻量 smoke)。
+# GitHub runner IP 在境外,打国内数据源会有误报 —— 因此这里 soft-fail,只把结果写进
+# Step Summary。真·每日实网巡检计划 v0.2 迁到国内节点(云函数/VPS)并自动开 Issue。
+on:
+  schedule:
+    - cron: "5 8 * * 1-5" # ~16:05 北京时间(收盘后),工作日
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Live smoke (soft-fail)
+        run: |
+          python scripts/canary.py | tee "$GITHUB_STEP_SUMMARY" || true

@@ -1,0 +1,35 @@
+{
+  "success": true,
+  "result": {
+    "data": [
+      {
+        "SECUCODE": "600519.SH",
+        "SECURITY_CODE": "600519",
+        "SECURITY_NAME_ABBR": "贵州茅台",
+        "REPORT_DATE": "2026-03-31 00:00:00",
+        "EPSJB": 18.5,
+        "EPSKCJB": 18.4,
+        "BPS": 210.3,
+        "TOTALOPERATEREVE": 51000000000.0,
+        "PARENTNETPROFIT": 26800000000.0,
+        "TOTALOPERATEREVETZ": 10.5,
+        "PARENTNETPROFITTZ": 11.2,
+        "ROEJQ": 8.9
+      },
+      {
+        "SECUCODE": "600519.SH",
+        "SECURITY_CODE": "600519",
+        "SECURITY_NAME_ABBR": "贵州茅台",
+        "REPORT_DATE": "2025-12-31 00:00:00",
+        "EPSJB": 68.5,
+        "EPSKCJB": 68.3,
+        "BPS": 195.0,
+        "TOTALOPERATEREVE": 170000000000.0,
+        "PARENTNETPROFIT": 86000000000.0,
+        "TOTALOPERATEREVETZ": 15.0,
+        "PARENTNETPROFITTZ": 16.0,
+        "ROEJQ": 34.5
+      }
+    ]
+  }
+}

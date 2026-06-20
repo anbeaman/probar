@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "probar"
+dynamic = ["version"]
+description = "稳定、可观测的 A 股数据接入层 —— 覆盖东方财富、通达信、同花顺"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "anbeaman" }]
+keywords = ["quant", "stock", "a-share", "eastmoney", "tdx", "tonghuashun", "行情", "量化"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    "httpx>=0.27",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+# 同花顺/问财 为实验性数据源(反爬 best-effort,见 README 免责声明),计划 v0.3 落地
+ths = []
+# 异步全市场扫描,计划 v0.2 落地
+async = []
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
+
+[project.urls]
+Homepage = "https://github.com/anbeaman/probar"
+Issues = "https://github.com/anbeaman/probar/issues"
+
+[tool.hatch.version]
+path = "probar/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["probar"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,35 @@
+{
+  "success": true,
+  "result": {
+    "data": [
+      {
+        "TRADE_DATE": "2026-06-18 00:00:00",
+        "SECURITY_CODE": "301687",
+        "SECURITY_NAME_ABBR": "示例股A",
+        "CLOSE_PRICE": 82.44,
+        "CHANGE_RATE": 12.34,
+        "BILLBOARD_NET_AMT": 50000000.0,
+        "BILLBOARD_BUY_AMT": 120000000.0,
+        "BILLBOARD_SELL_AMT": 70000000.0,
+        "BILLBOARD_DEAL_AMT": 337280428.71,
+        "TURNOVERRATE": 15.6,
+        "ACCUM_AMOUNT": 900000000.0,
+        "EXPLANATION": "日涨幅偏离值达7%"
+      },
+      {
+        "TRADE_DATE": "2026-06-18 00:00:00",
+        "SECURITY_CODE": "600000",
+        "SECURITY_NAME_ABBR": "示例股B",
+        "CLOSE_PRICE": 10.2,
+        "CHANGE_RATE": 5.1,
+        "BILLBOARD_NET_AMT": -20000000.0,
+        "BILLBOARD_BUY_AMT": 30000000.0,
+        "BILLBOARD_SELL_AMT": 50000000.0,
+        "BILLBOARD_DEAL_AMT": 80000000.0,
+        "TURNOVERRATE": 3.2,
+        "ACCUM_AMOUNT": 400000000.0,
+        "EXPLANATION": "换手率达20%"
+      }
+    ]
+  }
+}
