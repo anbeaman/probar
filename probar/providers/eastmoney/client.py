@@ -1,8 +1,8 @@
 """东方财富 Provider —— 绑定到 ``pb.dc``。
 
-v0.1 已实现:``quote`` / ``quotes`` / ``kline``(全链路:请求 -> 解析 -> 归一化)。
-其余接口已在命名空间中声明(诚实反映能力矩阵),实现按路线图分批落地,未实现者
-抛 :class:`NotImplementedError` 并注明计划版本。
+v0.1 已实现:``quote`` / ``quotes`` / ``kline`` / ``intraday`` / ``fund_flow`` / ``lhb`` /
+``financials``(全链路:请求 -> 解析 -> 归一化)。其余接口已在命名空间中声明(诚实反映能力矩阵),
+按路线图分批落地,未实现者抛 :class:`NotImplementedError` 并注明计划版本。
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ class EastMoney(HttpProvider):
         参数:
             symbol: 代码,如 "600519.SH" / "000001.SZ" / "600519"
             freq:   1m/5m/15m/30m/60m/1d/1w/1M(默认 1d)
-            adjust: "qfq"前复权 / "hfq"后复权 / None 不复权(默认 qfq)
+            adjust: "qfq"前复权 / "hfq"后复权 / "none"(或 None)不复权(默认 qfq)
             start, end: "YYYY-MM-DD",省略取最近 limit 根
             limit:  最多根数(默认 1000)
         返回 DataFrame: symbol, date, open, high, low, close,
@@ -109,7 +109,7 @@ class EastMoney(HttpProvider):
         ensure_columns(df, QUOTE_COLUMNS, source=self.name, interface="quotes")
         return stamp(df, source=self.name)
 
-    # ---- 已声明、待实现(诚实反映能力矩阵)-------------------------------
+    # ---- 已实现:当日分时 / 资金流 / 龙虎榜 / 主要财务 ----
     def intraday(self, symbol: str) -> pd.DataFrame:
         """当日分时(最近交易日;盘中为当日实时),返回 DataFrame。
 
@@ -168,6 +168,7 @@ class EastMoney(HttpProvider):
             非交易日 / 无榜单抛 NoData。
         返回列: date, code, name, close(元), change_rate(%), net_buy(元),
             buy, sell, deal_amt, turnover(%), amount(元), reason(上榜原因)。
+        注意: 单日较多时取前 500 条,df.attrs["truncated"] 标记是否截断。
         示例:
             >>> pb.dc.lhb(date="2026-06-18")[["code", "name", "net_buy"]].head(1)
                  code  name      net_buy
@@ -201,6 +202,7 @@ class EastMoney(HttpProvider):
         返回列: symbol, report_date, eps(元), eps_deduct(元), bps(元),
             revenue(营收, 元), net_profit(归母净利, 元),
             revenue_yoy(%), profit_yoy(%), roe(加权, %)。
+        注意: 取最近 50 期,df.attrs["truncated"] 标记是否截断。
         示例:
             >>> pb.dc.financials("600519.SH")[["report_date", "eps", "roe"]].head(1)
                        report_date   eps  roe
@@ -222,6 +224,7 @@ class EastMoney(HttpProvider):
         df.insert(0, "symbol", str(sym))
         return stamp(df, source=self.name, truncated=len(df) >= 50)
 
+    # ---- 待实现(占位,调用抛 NotImplementedError)----
     def intraday_hist(self, symbol: str, *, date: str) -> pd.DataFrame:
         raise _todo("intraday_hist")
 

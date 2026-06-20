@@ -46,8 +46,8 @@ EXAMPLES: dict[str, dict] = {
     },
     "dc.kline": {
         "params": {"symbol": "600519.SH", "freq": "1d", "adjust": "qfq", "start": "2024-01-01"},
-        "note": "freq=1m/5m/15m/30m/60m/1d/1w/1M;adjust=qfq/hfq/留空;1 分钟历史深度有限。"
-        "金额=元,成交量=手,涨跌幅/换手=%。",
+        "note": "freq=1m/5m/15m/30m/60m/1d/1w/1M;adjust=qfq/hfq/none(不复权);"
+        "1 分钟历史深度有限;金额=元,量=手,涨跌幅/换手=%。",
     },
     "dc.intraday": {
         "params": {"symbol": "000001.SZ"},
