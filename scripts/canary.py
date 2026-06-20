@@ -18,7 +18,7 @@ from __future__ import annotations
 import sys
 
 import probar as pb
-from probar.core.errors import NetworkError, NotSupported, RateLimited, SchemaChanged
+from probar.core.errors import NetworkError, RateLimited, SchemaChanged
 from probar.core.models import QUOTE_COLUMNS, SECURITIES_COLUMNS
 
 PROBES = ["600519.SH", "000001.SZ"]
@@ -65,9 +65,6 @@ def classify_securities() -> tuple[str, str]:
 def classify_tdx_quote() -> tuple[str, str]:
     try:
         df = pb.tdx.quotes(PROBES)
-    except NotSupported as e:
-        # 环境未装 pytdx extra:软失败(不算硬),境内 canary 节点会装齐
-        return "network", f"跳过(pytdx 未安装): {e}"
     except Exception as e:  # noqa: BLE001
         return _classify_exc(e)
     if [c for c in QUOTE_COLUMNS if c not in df.columns]:

@@ -81,7 +81,7 @@ def to_tdx(symbol: str) -> tuple[int, str]:
 def from_tdx(market: int, code: str) -> Symbol:
     """通达信 (market, code) -> :class:`Symbol`。market: 0=深 1=沪 2=北。
 
-    把行情响应里的数字 market 还原为 probar 规范市场,避免 pytdx 的 market 编码外泄到公共 API。
+    把行情响应里的数字 market 还原为 probar 规范市场,避免 TDX 的数字 market 编码外泄到公共 API。
     """
     try:
         return Symbol(str(code), _TDX_MARKET_REV[int(market)])

@@ -1,8 +1,8 @@
 """通达信 Provider —— 绑定到 ``pb.tdx``。
 
 通达信走**二进制 TCP 协议**(默认 7709 标准行情),不复用 HTTP 传输层:底层经
-:class:`~probar.providers.tdx.transport.TdxTransport`(pytdx 封在身后 + 服务器池业务探针)。
-需安装可选依赖:``pip install probar[tdx]``。
+:class:`~probar.providers.tdx.transport.TdxTransport` + 自写协议客户端(clean-room,纯标准库
+socket/struct/zlib,**零第三方依赖**)+ 服务器池业务探针。
 
 v0.3 已实现:``quotes`` / ``quote``(批量实时五档,**标杆**,全链路:服务器池 -> 协议 ->
 解析 -> 归一)。其余接口已在命名空间中声明(诚实反映能力矩阵),按路线图分批落地,未实现者
@@ -59,7 +59,7 @@ class Tdx:
         return f"<Tdx source='tdx' servers={'auto' if not self.servers else len(self.servers)}>"
 
     def _t(self) -> TdxTransport:
-        """惰性建传输层:``import probar`` / 构造 ``Tdx`` 时不连接、也不要求装 pytdx。"""
+        """惰性建传输层:``import probar`` / 构造 ``Tdx`` 时不连接、不占用 socket。"""
         if self._transport is None:
             from .transport import TdxTransport
 
@@ -91,7 +91,6 @@ class Tdx:
             bid1..bid5 / bid_vol1..5 / ask1..ask5 / ask_vol1..5(五档价与量),
             cur_vol(现手), inner_vol(内盘), outer_vol(外盘), servertime(服务器时间)。
         注意:
-            - 需 ``pip install probar[tdx]``;
             - 名称需另用 pb.dc 或 tdx.securities 映射;
             - 停牌/无效代码不会出现在返回里(只返回有数据的);全部无数据抛 NoData。
         示例:

@@ -1,8 +1,8 @@
 """通达信 quote 标杆:纯函数解析器(oracle fixture)+ client 装配 + 禁网门禁,默认全离线。
 
-``tdx_quotes.json`` 是用 pytdx 连真实服务器抓回、冻结的 ``get_security_quotes`` 输出
-(即 oracle):离线断言 probar 能把这份真实输出正确解析为统一 schema、且 pytdx 的字段名 /
-market 数字编码不外泄。实网连通性由带 ``@network`` 的用例覆盖(默认被排除)。
+``tdx_quotes.json`` 是从真实 TDX 服务器抓回、冻结的行情快照(即 oracle):离线断言 probar 能把
+这份真实输出正确解析为统一 schema、且 TDX 的原始字段名 / 数字 market 编码不外泄。实网连通性由带
+``@network`` 的用例覆盖(默认被排除)。
 """
 
 import json
@@ -25,7 +25,7 @@ def test_parse_quotes_schema_and_values():
     df = parsers.parse_quotes(_raw())
     assert list(df.columns) == TDX_QUOTE_COLUMNS          # 列契约(schema contract)
     assert set(QUOTE_COLUMNS) <= set(df.columns)          # ⊇ 跨源核心列
-    assert "market" not in df.columns                     # pytdx 的数字 market 不外泄
+    assert "market" not in df.columns                     # TDX 的数字 market 不外泄
     assert len(df) == 2
     by = {r["symbol"]: r for r in df.to_dict("records")}
     a = by["000001.SZ"]
@@ -123,36 +123,63 @@ def test_quotes_empty_input_raises():
 
 
 def test_transport_failover_demotes_bad_server(monkeypatch):
-    # Blocking 修复验证:首台"探针过但业务请求失败"时,应降级并真正换到下一台
+    # failover 验证:首台"探针过但请求遇连接/帧异常"时,应降级并真正换到下一台
     from probar.providers.tdx import transport as T
+    from probar.providers.tdx._protocol import TdxProtocolError
 
     visited: list[str] = []
     raw = _raw()
 
-    class FakeApi:
-        def __init__(self):
+    class FakeClient:
+        def __init__(self, *, timeout=5.0):
             self._host = None
 
-        def connect(self, host, port, time_out=None):
+        def connect(self, host, port):
             self._host = host
             visited.append(host)
             return True
 
         def get_security_quotes(self, req):
-            if len(req) >= 2:            # _PROBE 业务探针:各服务器都过
+            if len(req) >= 2:                  # _PROBE 业务探针:各服务器都过
                 return raw
-            if self._host == "bad":      # 坏服务器:真实业务请求抛
-                raise RuntimeError("boom")
+            if self._host == "bad":            # 坏服务器:连接/帧异常 -> 应换服务器
+                raise TdxProtocolError("boom")
             return [raw[0]]
 
         def disconnect(self):
             pass
 
-    monkeypatch.setattr(T, "_load_pytdx", lambda: FakeApi)
+    monkeypatch.setattr(T, "TdxClient", FakeClient)
     t = T.TdxTransport(servers=[("bad", 7709), ("good", 7709)])
     out = t.get_security_quotes([(0, "000001")])
     assert out and out[0]["code"] == "000001"
     assert visited[0] == "bad" and "good" in visited   # 先碰坏的,再换到好的
+
+
+def test_transport_surfaces_decode_error(monkeypatch):
+    # 解码层 SchemaChanged 不应被当"坏服务器"包成 NetworkError,而要如实上抛(不掩盖 bug)
+    from probar.core.errors import SchemaChanged
+    from probar.providers.tdx import transport as T
+
+    class FakeClient:
+        def __init__(self, *, timeout=5.0):
+            pass
+
+        def connect(self, host, port):
+            return True
+
+        def get_security_quotes(self, req):
+            if len(req) >= 2:                  # 探针:通过
+                return [{"price": 1.0}, {"price": 2.0}]
+            raise SchemaChanged("协议布局变了")  # 真实请求:解码层确定性错误
+
+        def disconnect(self):
+            pass
+
+    monkeypatch.setattr(T, "TdxClient", FakeClient)
+    t = T.TdxTransport(servers=[("h", 7709)])
+    with pytest.raises(SchemaChanged):         # 不是 NetworkError
+        t.get_security_quotes([(0, "000001")])
 
 
 @pytest.mark.network

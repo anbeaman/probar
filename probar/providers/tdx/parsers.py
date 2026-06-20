@@ -1,8 +1,8 @@
-"""通达信响应(经 pytdx 解码后的 ``list[dict]``)-> 统一 schema 的纯函数解析器。
+"""通达信响应(经协议层 :mod:`._codec` 解码后的 ``list[dict]``)-> 统一 schema 的纯函数解析器。
 
-刻意做成纯函数:输入是 transport 层拿到的 ``list[dict]``(pytdx ``get_security_quotes``
-的输出形态),输出是统一 schema 的 DataFrame。这样可用冻结的真实 fixture 做确定性离线
-单测(测 parser、不测网络)。pytdx 的字段名 / market 数字编码只在本层出现,不外泄。
+刻意做成纯函数:输入是协议层 ``get_security_quotes`` 解出的 ``list[dict]``,输出是统一 schema
+的 DataFrame。这样可用冻结的真实 fixture 做确定性离线单测(测 parser、不测网络)。TDX 的原始
+字段名 / 数字 market 编码只在本层归一,不外泄到公共 API。
 """
 
 from __future__ import annotations
