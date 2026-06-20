@@ -77,6 +77,52 @@ EXAMPLES: dict[str, dict] = {
 }
 
 
+# 每个接口的「返回数据格式」:kind=dict/DataFrame,fields=[字段名, 含义, 单位]。
+_QUOTE_RET = [
+    ["symbol", "证券代码", ""], ["name", "名称", ""], ["price", "最新价", "元"],
+    ["open", "开盘", "元"], ["high", "最高", "元"], ["low", "最低", "元"],
+    ["prev_close", "昨收", "元"], ["volume", "成交量", "手"], ["amount", "成交额", "元"],
+    ["pct_chg", "涨跌幅", "%"],
+]
+RETURNS: dict[str, dict] = {
+    "dc.quote": {"kind": "dict", "fields": _QUOTE_RET},
+    "dc.quotes": {"kind": "DataFrame", "fields": _QUOTE_RET},
+    "dc.kline": {"kind": "DataFrame", "fields": [
+        ["symbol", "证券代码", ""], ["date", "日期/时间", "datetime"], ["open", "开盘", "元"],
+        ["high", "最高", "元"], ["low", "最低", "元"], ["close", "收盘", "元"],
+        ["volume", "成交量", "手"], ["amount", "成交额", "元"], ["pct_chg", "涨跌幅", "%"],
+        ["turnover", "换手率", "%"],
+    ]},
+    "dc.intraday": {"kind": "DataFrame", "fields": [
+        ["symbol", "证券代码", ""], ["time", "时间", "datetime"], ["open", "开", "元"],
+        ["high", "高", "元"], ["low", "低", "元"], ["close", "现价/收", "元"],
+        ["volume", "成交量", "手"], ["amount", "成交额", "元"], ["avg", "当日均价", "元"],
+    ]},
+    "dc.fund_flow": {"kind": "DataFrame", "fields": [
+        ["symbol", "证券代码", ""], ["date", "日期", "datetime"],
+        ["main", "主力净额", "元"], ["small", "小单净额", "元"],
+        ["mid", "中单净额", "元"], ["large", "大单净额", "元"],
+        ["super", "超大单净额", "元"], ["main_pct", "主力净占比", "%"],
+        ["small_pct", "小单净占比", "%"], ["mid_pct", "中单净占比", "%"],
+        ["large_pct", "大单净占比", "%"], ["super_pct", "超大单净占比", "%"],
+        ["close", "收盘", "元"], ["pct_chg", "涨跌幅", "%"],
+    ]},
+    "dc.lhb": {"kind": "DataFrame", "fields": [
+        ["date", "交易日", "datetime"], ["code", "代码", ""], ["name", "名称", ""],
+        ["close", "收盘", "元"], ["change_rate", "涨跌幅", "%"], ["net_buy", "龙虎榜净买额", "元"],
+        ["buy", "买入额", "元"], ["sell", "卖出额", "元"], ["deal_amt", "龙虎榜成交额", "元"],
+        ["turnover", "换手率", "%"], ["amount", "总成交额", "元"], ["reason", "上榜原因", ""],
+    ]},
+    "dc.financials": {"kind": "DataFrame", "fields": [
+        ["symbol", "证券代码", ""], ["report_date", "报告期", "datetime"],
+        ["eps", "每股收益", "元"], ["eps_deduct", "扣非每股收益", "元"],
+        ["bps", "每股净资产", "元"], ["revenue", "营业收入", "元"],
+        ["net_profit", "归母净利润", "元"], ["revenue_yoy", "营收同比", "%"],
+        ["profit_yoy", "净利同比", "%"], ["roe", "加权ROE", "%"],
+    ]},
+}
+
+
 def _is_stub(method: Any) -> bool:
     try:
         src = inspect.getsource(method)
@@ -132,6 +178,7 @@ def _catalog() -> list[dict]:
                     "params": _param_spec(m),
                     "example": ex.get("params", {}),
                     "note": note,
+                    "returns": RETURNS.get(f"{ns_name}.{attr}"),
                 }
             )
         out.append(

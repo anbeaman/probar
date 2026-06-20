@@ -33,6 +33,8 @@ def test_interfaces_catalog():
     assert km["example"].get("symbol")        # 可一键填入的示例参数
     assert km["note"]                          # 注意事项
     assert "summary" in km and "doc" in km
+    assert km["returns"]["kind"] == "DataFrame"   # 结构化返回格式
+    assert any(f[0] == "close" for f in km["returns"]["fields"])
     ih = next(m for m in dc["methods"] if m["name"] == "intraday_hist")
     assert "NotImplementedError" in ih["note"]  # 未实现接口给默认提示
 

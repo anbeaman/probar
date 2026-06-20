@@ -1,217 +1,1718 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>probar 接口测试台</title>
-<style>
-  :root {
-    --bg: #f6f7f9; --panel: #fff; --ink: #1f2329; --muted: #6b7280;
-    --line: #e5e7eb; --brand: #2563eb; --brand-weak: #eff4ff;
-    --ok: #16a34a; --err: #dc2626; --warn: #d97706; --code: #0f172a;
-    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
-         background: var(--bg); color: var(--ink); font-size: 14px; }
-  header { display: flex; align-items: baseline; gap: 12px; padding: 12px 18px;
-           background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-  header h1 { font-size: 16px; margin: 0; }
-  header .sub { color: var(--muted); font-size: 12px; }
-  header .spacer { flex: 1; }
-  header button { font-size: 12px; }
-  .layout { display: grid; grid-template-columns: 290px 1fr; height: calc(100vh - 49px); }
-  /* sidebar */
-  aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 10px; }
-  .search { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
-  .ns-group { margin-bottom: 6px; }
-  .ns-title { font-size: 12px; font-weight: 600; color: var(--muted); padding: 8px 6px 4px; display: flex; justify-content: space-between; }
-  .ns-title small { font-family: var(--mono); font-weight: 400; }
-  .iface { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; cursor: pointer; }
-  .iface:hover { background: var(--bg); }
-  .iface.active { background: var(--brand-weak); color: var(--brand); }
-  .iface .name { font-family: var(--mono); font-size: 13px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-  .dot.on { background: var(--ok); } .dot.off { background: #cbd5e1; }
-  /* main */
-  main { overflow-y: auto; padding: 18px 22px; }
-  .empty { color: var(--muted); margin-top: 40px; text-align: center; }
-  .sig { font-family: var(--mono); font-size: 15px; font-weight: 600; }
-  .doc { color: var(--muted); margin: 6px 0 14px; white-space: pre-wrap; }
-  .note { background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:9px; margin-bottom:14px; font-size:13px; }
-  .note b { display:block; margin-bottom:3px; }
-  .ghost { background:var(--brand-weak); color:var(--brand); border:1px solid #cfe0ff; border-radius:8px; padding:7px 13px; font-size:12px; cursor:pointer; }
-  .ds { margin:0; white-space:pre-wrap; word-break:break-word; font-family:var(--mono); font-size:12.5px; line-height:1.6; color:var(--ink); background:transparent; padding:0; border-radius:0; max-height:none; overflow:visible; }
-  .help { background:#fbfcfe; }
-  .actions { display:flex; gap:10px; align-items:center; margin-top:12px; }
-  .muted { color:var(--muted); }
-  @media (max-width: 760px) {
-    .layout { grid-template-columns: 1fr; height: auto; }
-    aside { max-height: 42vh; border-right: 0; border-bottom: 1px solid var(--line); }
-  }
-  .badge { font-size: 11px; padding: 2px 7px; border-radius: 999px; vertical-align: middle; }
-  .badge.on { background: #dcfce7; color: var(--ok); } .badge.off { background: #f1f5f9; color: var(--muted); }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  .card h3 { margin: 0 0 12px; font-size: 13px; color: var(--muted); font-weight: 600; }
-  .field { margin-bottom: 11px; }
-  .field label { display: block; font-size: 13px; margin-bottom: 4px; }
-  .field label .req { color: var(--err); } .field label .ty { color: var(--muted); font-family: var(--mono); font-size: 11px; }
-  .field input { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-family: var(--mono); }
-  .run { background: var(--brand); color: #fff; border: 0; border-radius: 9px; padding: 9px 18px; font-size: 14px; cursor: pointer; }
-  .run:disabled { opacity: .5; cursor: default; }
-  .status { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
-  .pill { padding: 2px 9px; border-radius: 999px; font-weight: 600; font-size: 12px; }
-  .pill.ok { background: #dcfce7; color: var(--ok); } .pill.err { background: #fee2e2; color: var(--err); }
-  .called { font-family: var(--mono); font-size: 12px; color: var(--code); background: var(--bg); padding: 6px 9px; border-radius: 7px; overflow-x: auto; }
-  .prov { font-size: 12px; color: var(--muted); margin: 8px 0; font-family: var(--mono); }
-  .tablewrap { overflow: auto; max-height: 52vh; border: 1px solid var(--line); border-radius: 8px; }
-  table { border-collapse: collapse; width: 100%; font-size: 12px; font-family: var(--mono); }
-  th, td { padding: 6px 9px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
-  th { background: #fafbfc; position: sticky; top: 0; text-align: right; }
-  td:first-child, th:first-child { text-align: left; }
-  .errbox { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px; border-radius: 9px; font-size: 13px; }
-  .errbox .t { font-family: var(--mono); font-weight: 600; }
-  details { margin-top: 12px; } summary { cursor: pointer; color: var(--muted); font-size: 12px; }
-  pre { background: var(--code); color: #e2e8f0; padding: 12px; border-radius: 9px; overflow: auto; font-size: 12px; max-height: 40vh; }
-  .matrix td, .matrix th { text-align: center; } .matrix td:first-child { text-align: left; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>probar 接口测试台</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --line: #d9e2ef;
+      --line-strong: #c5d1df;
+      --text: #172033;
+      --muted: #64748b;
+      --muted-strong: #475569;
+      --accent: #0f766e;
+      --accent-soft: #e6fffb;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --warn: #b45309;
+      --warn-soft: #fff7ed;
+      --danger: #b42318;
+      --danger-soft: #fff1f2;
+      --shadow: 0 14px 35px rgba(15, 23, 42, 0.08);
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: var(--bg);
+      font-family: var(--sans);
+      line-height: 1.5;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.62;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 14px;
+    }
+
+    .brand-mark {
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius);
+      color: #ffffff;
+      background: linear-gradient(135deg, #0f766e, #2563eb);
+      font-family: var(--mono);
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .load-status {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted-strong);
+      background: var(--surface-soft);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .load-status::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+
+    .load-status.is-error::before {
+      background: var(--danger);
+    }
+
+    .load-status.is-ready::before {
+      background: var(--accent);
+    }
+
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      gap: 20px;
+      width: 100%;
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 20px 28px 28px;
+    }
+
+    .sidebar {
+      min-width: 0;
+    }
+
+    .sidebar-inner {
+      position: sticky;
+      top: 98px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: calc(100vh - 120px);
+      min-height: 0;
+    }
+
+    .side-card,
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .side-card {
+      padding: 14px;
+    }
+
+    .field-label,
+    .search-label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted-strong);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .search-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 40px;
+      padding: 0 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .search-wrap:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+    }
+
+    .search-icon {
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .search-wrap input {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      background: transparent;
+    }
+
+    .matrix-button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      color: var(--text);
+      background: var(--surface-soft);
+      font-weight: 700;
+    }
+
+    .matrix-button:hover,
+    .matrix-button.is-active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .catalog-list {
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .catalog-group {
+      margin-bottom: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .group-head {
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-soft);
+    }
+
+    .group-label {
+      font-weight: 800;
+    }
+
+    .group-namespace {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .method-list {
+      display: grid;
+      gap: 0;
+    }
+
+    .method-button {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 9px;
+      width: 100%;
+      padding: 11px 12px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      color: var(--text);
+      background: #ffffff;
+      text-align: left;
+    }
+
+    .method-button:last-child {
+      border-bottom: 0;
+    }
+
+    .method-button:hover {
+      background: var(--blue-soft);
+    }
+
+    .method-button.is-active {
+      background: var(--accent-soft);
+      box-shadow: inset 4px 0 0 var(--accent);
+    }
+
+    .method-button.is-muted {
+      color: var(--muted-strong);
+    }
+
+    .method-status {
+      padding-top: 2px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .method-status.ok {
+      color: var(--accent);
+    }
+
+    .method-status.no {
+      color: var(--muted);
+    }
+
+    .method-name {
+      display: block;
+      overflow: hidden;
+      color: inherit;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .method-summary {
+      display: -webkit-box;
+      margin-top: 3px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .empty-state {
+      padding: 22px;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.7);
+      text-align: center;
+    }
+
+    .content {
+      min-width: 0;
+      display: grid;
+      align-content: start;
+      gap: 16px;
+    }
+
+    .card {
+      overflow: hidden;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    .card-head h2,
+    .card-head h3 {
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .card-body {
+      padding: 18px 20px 20px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .signature {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .code-line,
+    code {
+      font-family: var(--mono);
+    }
+
+    .code-line {
+      overflow-x: auto;
+      max-width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: #0f172a;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.ok {
+      color: #0f766e;
+      background: #dcfce7;
+    }
+
+    .badge.no {
+      color: #475569;
+      background: #e2e8f0;
+    }
+
+    .section-title {
+      margin-bottom: 10px;
+      color: var(--muted-strong);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .summary-text {
+      color: var(--text);
+    }
+
+    .doc-block,
+    .text-block,
+    .json-block {
+      overflow: auto;
+      max-width: 100%;
+      margin: 0;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: #1f2937;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .notice {
+      padding: 12px 13px;
+      border: 1px solid #fed7aa;
+      border-radius: var(--radius);
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      color: var(--muted-strong);
+      background: var(--surface-soft);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td {
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .params-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .param-field {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+
+    .param-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .param-name {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 4px;
+      font-family: var(--mono);
+      font-weight: 800;
+    }
+
+    .required {
+      color: var(--danger);
+      font-family: var(--sans);
+    }
+
+    .type-pill {
+      flex: 0 0 auto;
+      max-width: 48%;
+      overflow: hidden;
+      padding: 3px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted-strong);
+      background: #ffffff;
+      font-family: var(--mono);
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .param-input {
+      width: 100%;
+      min-width: 0;
+      height: 38px;
+      padding: 8px 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      outline: 0;
+      color: var(--text);
+      background: #ffffff;
+    }
+
+    .param-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+    }
+
+    .param-help {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      color: var(--text);
+      background: #ffffff;
+      font-weight: 800;
+    }
+
+    .btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .btn.primary {
+      border-color: var(--accent);
+      color: #ffffff;
+      background: var(--accent);
+    }
+
+    .btn.primary:hover:not(:disabled) {
+      color: #ffffff;
+      background: #115e59;
+    }
+
+    .result-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .meta-item,
+    .attr-pill {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      gap: 6px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted-strong);
+      background: var(--surface-soft);
+      font-size: 12px;
+    }
+
+    .meta-value,
+    .attr-value {
+      overflow: hidden;
+      color: var(--text);
+      font-family: var(--mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .result-note {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      color: var(--muted-strong);
+      font-size: 13px;
+    }
+
+    .attrs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .error-box {
+      padding: 13px;
+      border: 1px solid #fecdd3;
+      border-radius: var(--radius);
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .error-type {
+      margin-bottom: 4px;
+      font-family: var(--mono);
+      font-weight: 800;
+    }
+
+    .raw-json {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .raw-json summary {
+      padding: 10px 12px;
+      color: var(--muted-strong);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .raw-json .json-block {
+      border: 0;
+      border-top: 1px solid var(--line);
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    .loading-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted-strong);
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--line-strong);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .matrix-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      color: var(--muted-strong);
+      font-size: 13px;
+    }
+
+    .support {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .support.yes {
+      color: var(--accent);
+    }
+
+    .support.no {
+      color: var(--muted);
+    }
+
+    .support.text {
+      color: var(--blue);
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        position: static;
+        align-items: flex-start;
+        padding: 16px;
+        flex-direction: column;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+
+      .sidebar-inner {
+        position: static;
+        max-height: none;
+      }
+
+      .catalog-list {
+        max-height: 48vh;
+      }
+
+      .params-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .brand {
+        align-items: flex-start;
+      }
+
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+      }
+
+      h1 {
+        font-size: 19px;
+      }
+
+      .card-head,
+      .card-body {
+        padding: 15px;
+      }
+
+      .card-head {
+        flex-direction: column;
+      }
+
+      table {
+        min-width: 480px;
+      }
+    }
+  </style>
 </head>
 <body>
-<header>
-  <h1>probar 接口测试台</h1>
-  <span class="sub">选数据源/接口 → 填参数 → 运行</span>
-  <span class="spacer"></span>
-  <button onclick="showMatrix()">能力矩阵</button>
-</header>
-<div class="layout">
-  <aside>
-    <input class="search" id="q" placeholder="搜索接口…" oninput="renderSidebar()" />
-    <div id="sidebar"></div>
-  </aside>
-  <main id="main"><div class="empty">← 从左侧选择一个接口</div></main>
-</div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">pb</div>
+        <div>
+          <h1>probar 接口测试台</h1>
+          <p class="subtitle">本地 A 股数据接入层接口调试与返回结构查看</p>
+        </div>
+      </div>
+      <div id="loadStatus" class="load-status">正在连接本地接口</div>
+    </header>
 
-<script>
-let CATALOG = [], CAPS = [], CUR = null;
+    <main class="workspace">
+      <aside class="sidebar" aria-label="接口列表">
+        <div class="sidebar-inner">
+          <div class="side-card">
+            <label class="search-label" for="searchInput">搜索接口</label>
+            <div class="search-wrap">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" autocomplete="off" placeholder="名称、summary、命名空间" />
+            </div>
+            <button id="matrixButton" class="matrix-button" type="button">
+              <span>能力矩阵</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <div id="catalogList" class="catalog-list"></div>
+        </div>
+      </aside>
 
-async function load() {
-  const r = await fetch("/api/interfaces");
-  const j = await r.json();
-  CATALOG = j.catalog; CAPS = j.capabilities;
-  renderSidebar();
-}
+      <section id="content" class="content" aria-live="polite">
+        <div class="card">
+          <div class="card-body">
+            <div class="loading-line">
+              <span class="spinner" aria-hidden="true"></span>
+              <span>正在加载接口目录…</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
-function renderSidebar() {
-  const q = (document.getElementById("q").value || "").toLowerCase();
-  const box = document.getElementById("sidebar");
-  box.innerHTML = "";
-  let shown = 0;
-  for (const grp of CATALOG) {
-    const grpHit = grp.namespace.toLowerCase().includes(q) || (grp.label || "").toLowerCase().includes(q);
-    const ms = grp.methods.filter(m => !q || grpHit
-      || m.name.toLowerCase().includes(q) || (m.summary || "").toLowerCase().includes(q));
-    if (!ms.length) continue;
-    const g = document.createElement("div"); g.className = "ns-group";
-    g.innerHTML = `<div class="ns-title"><span>${esc(grp.label)}</span><small>pb.${esc(grp.namespace)}</small></div>`;
-    for (const m of ms) {
-      const el = document.createElement("div");
-      el.className = "iface" + (CUR && CUR.ns === grp.namespace && CUR.m.name === m.name ? " active" : "");
-      el.innerHTML = `<span class="dot ${m.implemented ? "on" : "off"}"></span><span class="name">${esc(m.name)}</span>`;
-      el.onclick = () => selectIface(grp.namespace, m);
-      g.appendChild(el);
-    }
-    box.appendChild(g); shown++;
-  }
-  if (!shown) box.innerHTML = '<div class="muted" style="padding:10px 8px">无匹配接口</div>';
-}
+  <script>
+    (function () {
+      "use strict";
 
-function fillExample() {
-  if (!CUR) return;
-  const ex = CUR.m.example || {};
-  document.querySelectorAll("#main input[data-p]").forEach(i => { if (ex[i.dataset.p] !== undefined) i.value = ex[i.dataset.p]; });
-}
-function selectIface(ns, m) {
-  CUR = { ns, m };
-  renderSidebar();
-  const ex = m.example || {};
-  const fields = m.params.map(p => {
-    const exv = ex[p.name];
-    const val = exv !== undefined ? exv : (p.default === null || p.default === undefined ? "" : p.default);
-    const ph = p.type + (p.required ? "" : " · 可选") + (p.type.toLowerCase().includes("list") ? " · 逗号分隔" : "");
-    return '<div class="field"><label>' + esc(p.name) + (p.required ? ' <span class="req">*</span>' : '') +
-      ' <span class="ty">' + esc(ph) + '</span></label><input data-p="' + esc(p.name) + '" data-t="' +
-      esc(p.type) + '" value="' + esc(val) + '" placeholder="' + esc(ph) + '"></div>';
-  }).join("");
-  // 单一「说明」卡片:已实现接口用完整 docstring(含参数/返回/示例/注意),stub 用 note 兜底
-  const help = (m.doc && m.doc.trim()) ? m.doc : (m.note || m.summary || "—");
-  const exBtn = Object.keys(ex).length
-    ? '<button class="ghost" type="button" onclick="fillExample()">填入示例参数</button>' : '';
-  document.getElementById("main").innerHTML =
-    '<div class="sig">pb.' + esc(ns) + '.' + esc(m.name) + '(' + m.params.map(p => esc(p.name)).join(", ") + ')' +
-    ' <span class="badge ' + (m.implemented ? 'on' : 'off') + '">' + (m.implemented ? '已实现' : '未实现') + '</span></div>' +
-    '<div class="card help"><h3>说明</h3><pre class="ds">' + esc(help) + '</pre></div>' +
-    '<div class="card"><h3>参数</h3>' + (fields || '<div class="muted">无参数</div>') +
-    '<div class="actions"><button class="run" id="runBtn" onclick="run()">运行</button>' + exBtn + '</div></div>' +
-    '<div id="result"></div>';
-}
+      var state = {
+        catalog: [],
+        capabilities: [],
+        methods: [],
+        methodMap: new Map(),
+        selectedKey: "",
+        activeView: "interface",
+        query: "",
+        requestSeq: 0
+      };
 
-async function run() {
-  if (!CUR) return;
-  const myIface = CUR;   // 捕获当前接口,运行中若切换接口则丢弃过期结果,避免渲染错位
-  const btn = document.getElementById("runBtn");
-  btn.disabled = true; btn.textContent = "运行中…";
-  const params = {};
-  document.querySelectorAll("#main input[data-p]").forEach(i => { if (i.value !== "") params[i.dataset.p] = i.value; });
-  let j;
-  try {
-    const r = await fetch("/api/call", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ namespace: myIface.ns, method: myIface.m.name, params }) });
-    j = await r.json();
-  } catch (e) { j = { ok: false, error: { type: "NetworkError", message: String(e) } }; }
-  if (CUR !== myIface) return;   // 用户已切换到别的接口,这次结果作废
-  btn.disabled = false; btn.textContent = "运行";
-  renderResult(j);
-}
+      var OMIT = Symbol("omit");
+      var catalogList = document.getElementById("catalogList");
+      var content = document.getElementById("content");
+      var searchInput = document.getElementById("searchInput");
+      var matrixButton = document.getElementById("matrixButton");
+      var loadStatus = document.getElementById("loadStatus");
 
-function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cell(v){ if (v === null || v === undefined) return '<span class="muted">·</span>'; return typeof v === 'object' ? esc(JSON.stringify(v)) : esc(v); }
+      function escapeHtml(value) {
+        return String(value == null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
 
-function renderResult(j) {
-  const box = document.getElementById("result");
-  const head = `<div class="status">
-      <span class="pill ${j.ok?'ok':'err'}">${j.ok?'成功':'错误'}</span>
-      ${j.elapsed_ms!=null?`<span>${j.elapsed_ms} ms</span>`:''}
-      ${j.called?`<span class="called">${esc(j.called)}</span>`:''}</div>`;
-  let body = "";
-  if (!j.ok) {
-    body = `<div class="errbox"><span class="t">${esc(j.error?.type||'Error')}</span> — ${esc(j.error?.message||'')}</div>`;
-  } else if (j.kind === "table") {
-    const prov = Object.keys(j.attrs||{}).length ? `来源/溯源: ${esc(JSON.stringify(j.attrs))}` : '';
-    const cols = j.columns.map(c=>`<th>${esc(c)}</th>`).join("");
-    const rows = j.rows.map(r=>`<tr>${r.map(v=>`<td>${cell(v)}</td>`).join("")}</tr>`).join("");
-    body = `<div class="prov">显示 ${j.shown} / 共 ${j.total_rows} 行　${prov}</div>
-      <div class="tablewrap"><table><thead><tr>${cols}</tr></thead><tbody>${rows}</tbody></table></div>`;
-  } else if (j.kind === "dict") {
-    const rows = Object.entries(j.data).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${cell(v)}</td></tr>`).join("");
-    body = `<div class="tablewrap"><table><tbody>${rows}</tbody></table></div>`;
-  } else {
-    body = `<pre>${esc(j.data)}</pre>`;
-  }
-  const raw = `<details><summary>原始 JSON</summary><pre>${esc(JSON.stringify(j,null,2))}</pre></details>`;
-  box.innerHTML = `<div class="card">${head}${body}${raw}</div>`;
-}
+      function node(tagName, className, text) {
+        var el = document.createElement(tagName);
+        if (className) {
+          el.className = className;
+        }
+        if (text !== undefined) {
+          el.textContent = String(text);
+        }
+        return el;
+      }
 
-function showMatrix() {
-  CUR = null; renderSidebar();
-  const cols = Object.keys(CAPS[0]||{}).filter(k=>k!=="capability");
-  const head = `<th>能力</th>` + cols.map(c=>`<th>${esc(c)}</th>`).join("");
-  const rows = CAPS.map(r=>`<tr><td>${esc(r.capability)}</td>${cols.map(c=>`<td>${esc(r[c])}</td>`).join("")}</tr>`).join("");
-  document.getElementById("main").innerHTML =
-    `<div class="sig">能力矩阵</div><div class="doc">三源能力参考(✅强 / 🔸部分 / ⚠️反爬脆 / ❌无)</div>
-     <div class="card"><div class="tablewrap"><table class="matrix"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
-}
+      function clear(el) {
+        el.replaceChildren();
+      }
 
-load();
-</script>
+      function asArray(value) {
+        return Array.isArray(value) ? value : [];
+      }
+
+      function safeString(value) {
+        return value == null ? "" : String(value);
+      }
+
+      function formatCell(value) {
+        if (value === null || value === undefined) {
+          return "—";
+        }
+        if (Array.isArray(value) || typeof value === "object") {
+          try {
+            return JSON.stringify(value);
+          } catch (error) {
+            return String(value);
+          }
+        }
+        return String(value);
+      }
+
+      function formatInputValue(value) {
+        if (value === null || value === undefined) {
+          return "";
+        }
+        if (Array.isArray(value)) {
+          return value.map(formatCell).join(", ");
+        }
+        if (typeof value === "object") {
+          try {
+            return JSON.stringify(value);
+          } catch (error) {
+            return String(value);
+          }
+        }
+        return String(value);
+      }
+
+      function methodKey(namespace, name) {
+        return encodeURIComponent(safeString(namespace)) + "::" + encodeURIComponent(safeString(name));
+      }
+
+      function setStatus(text, className) {
+        loadStatus.className = "load-status" + (className ? " " + className : "");
+        loadStatus.textContent = text;
+      }
+
+      function normalizeCatalog(catalog) {
+        state.methodMap = new Map();
+        state.methods = [];
+
+        state.catalog = asArray(catalog).map(function (group) {
+          var namespace = safeString(group && group.namespace);
+          var label = safeString(group && group.label) || namespace || "未命名数据源";
+          var methods = asArray(group && group.methods).map(function (method) {
+            var item = Object.assign({}, method);
+            item.namespace = namespace;
+            item.label = label;
+            item.name = safeString(item.name);
+            item.summary = safeString(item.summary);
+            item.doc = safeString(item.doc);
+            item.note = safeString(item.note);
+            item.params = asArray(item.params);
+            item.example = item.example && typeof item.example === "object" ? item.example : {};
+            item.implemented = Boolean(item.implemented);
+            item.key = methodKey(namespace, item.name);
+            state.methodMap.set(item.key, item);
+            state.methods.push(item);
+            return item;
+          });
+
+          return {
+            namespace: namespace,
+            label: label,
+            methods: methods
+          };
+        });
+      }
+
+      function matchesQuery(method, query) {
+        if (!query) {
+          return true;
+        }
+        var haystack = [
+          method.name,
+          method.summary,
+          method.namespace,
+          method.label
+        ].join(" ").toLowerCase();
+        return haystack.indexOf(query) !== -1;
+      }
+
+      function renderSidebar() {
+        clear(catalogList);
+        matrixButton.classList.toggle("is-active", state.activeView === "matrix");
+
+        var query = state.query;
+        var matched = 0;
+
+        state.catalog.forEach(function (group) {
+          var methods = group.methods.filter(function (method) {
+            return matchesQuery(method, query);
+          });
+
+          if (!methods.length) {
+            return;
+          }
+
+          matched += methods.length;
+
+          var groupEl = node("section", "catalog-group");
+          var head = node("div", "group-head");
+          var label = node("div", "group-label", group.label);
+          var ns = node("code", "group-namespace", "pb." + group.namespace);
+          head.append(label, ns);
+          groupEl.appendChild(head);
+
+          var methodList = node("div", "method-list");
+          methods.forEach(function (method) {
+            var button = node("button", "method-button", "");
+            button.type = "button";
+            button.dataset.key = method.key;
+            button.classList.toggle("is-active", state.activeView === "interface" && state.selectedKey === method.key);
+            button.classList.toggle("is-muted", !method.implemented);
+
+            var status = node("span", "method-status " + (method.implemented ? "ok" : "no"), method.implemented ? "●" : "○");
+            var body = node("span", "method-copy");
+            var name = node("span", "method-name", method.name);
+            var summary = node("span", "method-summary", (method.implemented ? "已实现 · " : "未实现 · ") + (method.summary || "暂无摘要"));
+            body.append(name, summary);
+            button.append(status, body);
+
+            button.addEventListener("click", function () {
+              selectInterface(method.key);
+            });
+
+            methodList.appendChild(button);
+          });
+
+          groupEl.appendChild(methodList);
+          catalogList.appendChild(groupEl);
+        });
+
+        if (!matched) {
+          catalogList.appendChild(node("div", "empty-state", "无匹配接口"));
+        }
+      }
+
+      function selectInterface(key) {
+        var method = state.methodMap.get(key);
+        if (!method) {
+          return;
+        }
+        state.activeView = "interface";
+        state.selectedKey = key;
+        state.requestSeq += 1;
+        renderSidebar();
+        renderInterface(method);
+      }
+
+      function renderInterface(method) {
+        clear(content);
+        content.appendChild(buildSignatureCard(method));
+        content.appendChild(buildDescriptionCard(method));
+
+        if (method.returns) {
+          content.appendChild(buildReturnsCard(method));
+        }
+
+        content.appendChild(buildParamsCard(method));
+        content.appendChild(buildResultCard());
+      }
+
+      function formatSignatureParam(param) {
+        var name = safeString(param && param.name) || "param";
+        var required = Boolean(param && param.required);
+        var hasDefault = param && Object.prototype.hasOwnProperty.call(param, "default") && param.default !== undefined && param.default !== null;
+
+        if (required || !hasDefault) {
+          return name;
+        }
+        return name + "=" + formatCell(param.default);
+      }
+
+      function buildSignatureCard(method) {
+        var card = node("section", "card");
+        var head = node("div", "card-head");
+        var title = node("h2", "", "接口签名");
+        var badge = node("span", "badge " + (method.implemented ? "ok" : "no"), method.implemented ? "● 已实现" : "○ 未实现");
+        head.append(title, badge);
+
+        var body = node("div", "card-body");
+        var signature = node("div", "signature");
+        var code = node("code", "code-line", "pb." + method.namespace + "." + method.name + "(" + method.params.map(formatSignatureParam).join(", ") + ")");
+        signature.appendChild(code);
+        body.appendChild(signature);
+
+        card.append(head, body);
+        return card;
+      }
+
+      function buildDescriptionCard(method) {
+        var card = node("section", "card");
+        var head = node("div", "card-head");
+        head.appendChild(node("h3", "", "说明"));
+
+        var body = node("div", "card-body stack");
+        var summaryWrap = node("div", "");
+        summaryWrap.appendChild(node("div", "section-title", "摘要"));
+        summaryWrap.appendChild(node("p", "summary-text", method.summary || "暂无摘要。"));
+        body.appendChild(summaryWrap);
+
+        var docWrap = node("div", "");
+        docWrap.appendChild(node("div", "section-title", "完整 docstring"));
+        docWrap.appendChild(node("pre", "doc-block", method.doc || "暂无完整 docstring。"));
+        body.appendChild(docWrap);
+
+        if (!method.implemented) {
+          body.appendChild(node("div", "notice", method.note || "该接口尚未实现。"));
+        }
+
+        card.append(head, body);
+        return card;
+      }
+
+      function buildReturnsCard(method) {
+        var returns = method.returns || {};
+        var kind = safeString(returns.kind);
+        var titleText = kind === "DataFrame" ? "DataFrame 列" : kind === "dict" ? "dict 键" : (kind || "返回字段");
+        var fields = asArray(returns.fields);
+
+        var card = node("section", "card");
+        var head = node("div", "card-head");
+        head.appendChild(node("h3", "", "返回数据格式"));
+
+        var body = node("div", "card-body stack");
+        body.appendChild(node("p", "summary-text", "kind: " + titleText));
+
+        if (fields.length) {
+          var wrap = node("div", "table-wrap");
+          var table = document.createElement("table");
+          var thead = document.createElement("thead");
+          var headRow = document.createElement("tr");
+          ["字段", "含义", "单位"].forEach(function (label) {
+            headRow.appendChild(node("th", "", label));
+          });
+          thead.appendChild(headRow);
+
+          var tbody = document.createElement("tbody");
+          fields.forEach(function (field) {
+            var row = document.createElement("tr");
+            var parts = Array.isArray(field) ? field : [field, "", ""];
+            row.appendChild(node("td", "", formatCell(parts[0])));
+            row.appendChild(node("td", "", formatCell(parts[1])));
+            row.appendChild(node("td", "", formatCell(parts[2])));
+            tbody.appendChild(row);
+          });
+
+          table.append(thead, tbody);
+          wrap.appendChild(table);
+          body.appendChild(wrap);
+        } else {
+          body.appendChild(node("div", "empty-state", "暂无字段说明"));
+        }
+
+        card.append(head, body);
+        return card;
+      }
+
+      function buildParamsCard(method) {
+        var card = node("section", "card");
+        var head = node("div", "card-head");
+        head.appendChild(node("h3", "", "参数"));
+
+        var body = node("div", "card-body");
+        var form = node("div", "params-grid");
+        form.id = "paramForm";
+
+        if (method.params.length) {
+          method.params.forEach(function (param, index) {
+            form.appendChild(buildParamField(param, index, method));
+          });
+        } else {
+          form.appendChild(node("div", "empty-state", "该接口无需参数。"));
+        }
+
+        var actions = node("div", "actions");
+        var runButton = node("button", "btn primary", "运行");
+        runButton.type = "button";
+        runButton.disabled = !method.implemented;
+        if (!method.implemented) {
+          runButton.title = "该接口尚未实现";
+        }
+        runButton.addEventListener("click", function () {
+          runSelectedInterface();
+        });
+
+        var exampleButton = node("button", "btn", "填入示例参数");
+        exampleButton.type = "button";
+        exampleButton.addEventListener("click", function () {
+          fillExampleParams(method);
+        });
+
+        actions.append(runButton, exampleButton);
+        body.append(form, actions);
+        card.append(head, body);
+        return card;
+      }
+
+      function buildParamField(param, index, method) {
+        var field = node("label", "param-field");
+        var top = node("div", "param-top");
+        var nameWrap = node("span", "param-name");
+        nameWrap.appendChild(node("span", "", safeString(param.name) || "param"));
+        if (param.required) {
+          nameWrap.appendChild(node("span", "required", "*"));
+        }
+
+        var type = safeString(param.type) || "any";
+        top.append(nameWrap, node("span", "type-pill", type));
+
+        var input = document.createElement("input");
+        input.className = "param-input";
+        input.type = "text";
+        input.dataset.paramIndex = String(index);
+        input.autocomplete = "off";
+        input.value = getExampleOrDefault(method, param);
+        input.placeholder = isListType(type) ? "多个值用英文逗号分隔" : "输入参数值";
+
+        var helpParts = [];
+        if (param.required) {
+          helpParts.push("必填");
+        }
+        if (Object.prototype.hasOwnProperty.call(param, "default") && param.default !== undefined && param.default !== null) {
+          helpParts.push("默认: " + formatCell(param.default));
+        }
+        if (isListType(type)) {
+          helpParts.push("list 用英文逗号分隔");
+        }
+
+        field.append(top, input);
+        if (helpParts.length) {
+          field.appendChild(node("div", "param-help", helpParts.join(" · ")));
+        }
+        return field;
+      }
+
+      function isListType(type) {
+        return /list|array|tuple|\[\]/i.test(safeString(type));
+      }
+
+      function getExampleOrDefault(method, param) {
+        var name = safeString(param && param.name);
+        if (method.example && Object.prototype.hasOwnProperty.call(method.example, name)) {
+          return formatInputValue(method.example[name]);
+        }
+        if (param && Object.prototype.hasOwnProperty.call(param, "default")) {
+          return formatInputValue(param.default);
+        }
+        return "";
+      }
+
+      function fillExampleParams(method) {
+        document.querySelectorAll("#paramForm [data-param-index]").forEach(function (input) {
+          var param = method.params[Number(input.dataset.paramIndex)];
+          if (param) {
+            input.value = getExampleOrDefault(method, param);
+          }
+        });
+      }
+
+      function buildResultCard() {
+        var card = node("section", "card");
+        var head = node("div", "card-head");
+        head.appendChild(node("h3", "", "结果"));
+        var body = node("div", "card-body");
+        body.id = "resultOutput";
+        body.appendChild(node("div", "empty-state", "运行后显示结果"));
+        card.append(head, body);
+        return card;
+      }
+
+      function collectParams(method) {
+        var params = {};
+        document.querySelectorAll("#paramForm [data-param-index]").forEach(function (input) {
+          var param = method.params[Number(input.dataset.paramIndex)];
+          if (!param) {
+            return;
+          }
+          var value = parseParamValue(input.value, param);
+          if (value !== OMIT) {
+            params[safeString(param.name)] = value;
+          }
+        });
+        return params;
+      }
+
+      function parseParamValue(rawValue, param) {
+        var raw = String(rawValue == null ? "" : rawValue).trim();
+        var type = safeString(param && param.type).toLowerCase();
+
+        if (raw === "") {
+          return param && param.required ? "" : OMIT;
+        }
+
+        if (/^(\[|\{|")/.test(raw) || raw === "null" || raw === "true" || raw === "false") {
+          try {
+            return JSON.parse(raw);
+          } catch (error) {
+            // 继续按输入类型解析。
+          }
+        }
+
+        if (isListType(type)) {
+          return raw.split(",").map(function (item) {
+            return item.trim();
+          }).filter(Boolean);
+        }
+
+        if (/bool|boolean/.test(type)) {
+          if (/^(true|1|yes|y|是)$/i.test(raw)) {
+            return true;
+          }
+          if (/^(false|0|no|n|否)$/i.test(raw)) {
+            return false;
+          }
+        }
+
+        if (/int|float|double|number/.test(type) && /^-?\d+(\.\d+)?$/.test(raw)) {
+          return Number(raw);
+        }
+
+        return raw;
+      }
+
+      async function runSelectedInterface() {
+        var method = state.methodMap.get(state.selectedKey);
+        if (!method) {
+          return;
+        }
+
+        var seq = state.requestSeq + 1;
+        state.requestSeq = seq;
+        var key = method.key;
+        var payload = {
+          namespace: method.namespace,
+          method: method.name,
+          params: collectParams(method)
+        };
+
+        renderResultLoading();
+
+        try {
+          var response = await fetch("/api/call", {
+            method: "POST",
+            headers: {
+              "Accept": "application/json",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+
+          var text = await response.text();
+          var data;
+          try {
+            data = text ? JSON.parse(text) : {};
+          } catch (error) {
+            data = {
+              ok: false,
+              elapsed_ms: null,
+              called: "pb." + method.namespace + "." + method.name + "(...)",
+              error: {
+                type: "InvalidJSON",
+                message: text || "接口返回内容不是 JSON"
+              }
+            };
+          }
+
+          if (!response.ok && data.ok !== false) {
+            data = {
+              ok: false,
+              elapsed_ms: data.elapsed_ms,
+              called: data.called || "pb." + method.namespace + "." + method.name + "(...)",
+              error: {
+                type: "HTTP " + response.status,
+                message: response.statusText || formatCell(data)
+              },
+              response: data
+            };
+          }
+
+          if (state.requestSeq !== seq || state.selectedKey !== key || state.activeView !== "interface") {
+            return;
+          }
+
+          renderResult(data);
+        } catch (error) {
+          if (state.requestSeq !== seq || state.selectedKey !== key || state.activeView !== "interface") {
+            return;
+          }
+          renderResult({
+            ok: false,
+            elapsed_ms: null,
+            called: "pb." + method.namespace + "." + method.name + "(...)",
+            error: {
+              type: "NetworkError",
+              message: error && error.message ? error.message : String(error)
+            }
+          });
+        }
+      }
+
+      function renderResultLoading() {
+        var output = document.getElementById("resultOutput");
+        if (!output) {
+          return;
+        }
+        clear(output);
+        var line = node("div", "loading-line");
+        line.append(node("span", "spinner"), node("span", "", "正在调用接口…"));
+        output.appendChild(line);
+      }
+
+      function renderResult(data) {
+        var output = document.getElementById("resultOutput");
+        if (!output) {
+          return;
+        }
+        clear(output);
+
+        output.appendChild(buildResultMeta(data));
+
+        if (data && (data.ok === false || data.error)) {
+          output.appendChild(buildErrorBox(data.error || {}));
+          output.appendChild(buildRawJson(data));
+          return;
+        }
+
+        var kind = safeString(data && data.kind);
+        if (kind === "table") {
+          renderTableResult(output, data);
+        } else if (kind === "dict") {
+          renderDictResult(output, data);
+        } else if (kind === "text") {
+          output.appendChild(node("pre", "text-block", formatCell(data && data.data)));
+        } else {
+          output.appendChild(node("div", "empty-state", "未知结果类型"));
+        }
+
+        output.appendChild(buildRawJson(data));
+      }
+
+      function buildResultMeta(data) {
+        var meta = node("div", "result-meta");
+        meta.appendChild(buildMetaItem("调用串", data && Object.prototype.hasOwnProperty.call(data, "called") ? data.called : "—"));
+        meta.appendChild(buildMetaItem("耗时", data && data.elapsed_ms !== undefined && data.elapsed_ms !== null ? data.elapsed_ms + " ms" : "—"));
+        return meta;
+      }
+
+      function buildMetaItem(label, value) {
+        var item = node("span", "meta-item");
+        item.append(node("span", "", label + ":"), node("span", "meta-value", formatCell(value)));
+        return item;
+      }
+
+      function buildErrorBox(error) {
+        var box = node("div", "error-box");
+        box.appendChild(node("div", "error-type", formatCell(error.type || "Error")));
+        box.appendChild(node("div", "", formatCell(error.message || "接口调用失败")));
+        return box;
+      }
+
+      function renderTableResult(output, data) {
+        var columns = asArray(data && data.columns).map(formatCell);
+        var rows = asArray(data && data.rows);
+        var totalRows = data && data.total_rows !== undefined ? data.total_rows : rows.length;
+        var shown = data && data.shown !== undefined ? data.shown : rows.length;
+
+        var note = node("div", "result-note");
+        note.appendChild(node("span", "", "显示 " + formatCell(shown) + " / " + formatCell(totalRows) + " 行"));
+        output.appendChild(note);
+
+        if (data && data.attrs && typeof data.attrs === "object") {
+          output.appendChild(buildAttrs(data.attrs));
+        }
+
+        if (!columns.length && rows.length) {
+          var maxLen = rows.reduce(function (max, row) {
+            return Math.max(max, Array.isArray(row) ? row.length : Object.keys(row || {}).length);
+          }, 0);
+          columns = Array.from({ length: maxLen }, function (_, index) {
+            return "列" + (index + 1);
+          });
+        }
+
+        if (!rows.length) {
+          output.appendChild(node("div", "empty-state", "无数据行"));
+          return;
+        }
+
+        var wrap = node("div", "table-wrap");
+        var table = document.createElement("table");
+        var thead = document.createElement("thead");
+        var headRow = document.createElement("tr");
+        columns.forEach(function (column) {
+          headRow.appendChild(node("th", "", column));
+        });
+        thead.appendChild(headRow);
+
+        var tbody = document.createElement("tbody");
+        rows.forEach(function (row) {
+          var tr = document.createElement("tr");
+          columns.forEach(function (column, index) {
+            var value = Array.isArray(row) ? row[index] : row && row[column];
+            tr.appendChild(node("td", "", formatCell(value)));
+          });
+          tbody.appendChild(tr);
+        });
+
+        table.append(thead, tbody);
+        wrap.appendChild(table);
+        output.appendChild(wrap);
+      }
+
+      function buildAttrs(attrs) {
+        var wrap = node("div", "attrs");
+        Object.keys(attrs).forEach(function (key) {
+          var pill = node("span", "attr-pill");
+          pill.append(node("span", "", key + ":"), node("span", "attr-value", formatCell(attrs[key])));
+          wrap.appendChild(pill);
+        });
+        return wrap;
+      }
+
+      function renderDictResult(output, data) {
+        var dict = data && data.data && typeof data.data === "object" ? data.data : {};
+        var entries = Object.keys(dict);
+
+        if (!entries.length) {
+          output.appendChild(node("div", "empty-state", "空 dict"));
+          return;
+        }
+
+        var wrap = node("div", "table-wrap");
+        var table = document.createElement("table");
+        var thead = document.createElement("thead");
+        var headRow = document.createElement("tr");
+        ["键", "值"].forEach(function (label) {
+          headRow.appendChild(node("th", "", label));
+        });
+        thead.appendChild(headRow);
+
+        var tbody = document.createElement("tbody");
+        entries.forEach(function (key) {
+          var tr = document.createElement("tr");
+          tr.append(node("td", "", key), node("td", "", formatCell(dict[key])));
+          tbody.appendChild(tr);
+        });
+
+        table.append(thead, tbody);
+        wrap.appendChild(table);
+        output.appendChild(wrap);
+      }
+
+      function buildRawJson(data) {
+        var details = node("details", "raw-json");
+        details.appendChild(node("summary", "", "原始 JSON"));
+        var json = "";
+        try {
+          json = JSON.stringify(data, null, 2);
+        } catch (error) {
+          json = formatCell(data);
+        }
+        details.appendChild(node("pre", "json-block", json));
+        return details;
+      }
+
+      function renderMatrix() {
+        state.activeView = "matrix";
+        state.requestSeq += 1;
+        renderSidebar();
+        clear(content);
+
+        var card = node("section", "card");
+        var head = node("div", "card-head");
+        head.appendChild(node("h2", "", "能力矩阵"));
+        var body = node("div", "card-body");
+
+        var legend = node("div", "matrix-legend");
+        legend.append(
+          node("span", "support yes", "● 支持"),
+          node("span", "support no", "○ 未支持"),
+          node("span", "support text", "文本为后端返回说明")
+        );
+        body.appendChild(legend);
+
+        if (!state.capabilities.length) {
+          body.appendChild(node("div", "empty-state", "暂无能力矩阵数据"));
+          card.append(head, body);
+          content.appendChild(card);
+          return;
+        }
+
+        var wrap = node("div", "table-wrap");
+        var table = document.createElement("table");
+        var thead = document.createElement("thead");
+        var headRow = document.createElement("tr");
+        ["能力", "dc", "tdx", "ths"].forEach(function (label) {
+          headRow.appendChild(node("th", "", label));
+        });
+        thead.appendChild(headRow);
+
+        var tbody = document.createElement("tbody");
+        state.capabilities.forEach(function (capability) {
+          var tr = document.createElement("tr");
+          tr.appendChild(node("td", "", formatCell(capability && capability.capability)));
+          ["dc", "tdx", "ths"].forEach(function (source) {
+            tr.appendChild(buildSupportCell(capability && capability[source]));
+          });
+          tbody.appendChild(tr);
+        });
+
+        table.append(thead, tbody);
+        wrap.appendChild(table);
+        body.appendChild(wrap);
+        card.append(head, body);
+        content.appendChild(card);
+      }
+
+      function buildSupportCell(value) {
+        var td = document.createElement("td");
+        var span = node("span", "support");
+        var normalized = normalizeSupport(value);
+        span.classList.add(normalized.type);
+        span.textContent = normalized.text;
+        td.appendChild(span);
+        return td;
+      }
+
+      function normalizeSupport(value) {
+        if (value === true) {
+          return { type: "yes", text: "● 支持" };
+        }
+        if (value === false || value === null || value === undefined || value === "") {
+          return { type: "no", text: "○ 未支持" };
+        }
+
+        var text = String(value);
+        if (/^(true|1|yes|y|是|支持|可用|√|✓)$/i.test(text)) {
+          return { type: "yes", text: "● 支持" };
+        }
+        if (/^(false|0|no|n|否|不支持|不可用|×|x|-|—)$/i.test(text)) {
+          return { type: "no", text: "○ 未支持" };
+        }
+        return { type: "text", text: formatCell(value) };
+      }
+
+      async function loadInterfaces() {
+        setStatus("正在连接本地接口", "");
+        try {
+          var response = await fetch("/api/interfaces", {
+            headers: {
+              "Accept": "application/json"
+            }
+          });
+          if (!response.ok) {
+            throw new Error("HTTP " + response.status + " " + (response.statusText || ""));
+          }
+
+          var data = await response.json();
+          normalizeCatalog(data && data.catalog);
+          state.capabilities = asArray(data && data.capabilities);
+
+          setStatus("已加载 " + state.methods.length + " 个接口", "is-ready");
+
+          if (state.methods.length) {
+            var first = state.methods.find(function (method) {
+              return method.implemented;
+            }) || state.methods[0];
+            state.selectedKey = first.key;
+            state.activeView = "interface";
+            renderSidebar();
+            renderInterface(first);
+          } else {
+            renderSidebar();
+            clear(content);
+            content.appendChild(node("div", "empty-state", "未返回接口目录"));
+          }
+        } catch (error) {
+          setStatus("接口目录加载失败", "is-error");
+          clear(content);
+          var card = node("section", "card");
+          var body = node("div", "card-body");
+          body.appendChild(buildErrorBox({
+            type: "LoadError",
+            message: error && error.message ? error.message : String(error)
+          }));
+          card.appendChild(body);
+          content.appendChild(card);
+        }
+      }
+
+      searchInput.addEventListener("input", function (event) {
+        state.query = event.target.value.trim().toLowerCase();
+        renderSidebar();
+      });
+
+      matrixButton.addEventListener("click", function () {
+        renderMatrix();
+      });
+
+      window.__probarEscapeHtml = escapeHtml;
+      loadInterfaces();
+    })();
+  </script>
 </body>
 </html>
