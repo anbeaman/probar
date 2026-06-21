@@ -135,6 +135,15 @@ class TdxTransport:
         with self._lock:
             return self._with_retry(lambda c: c.get_xdxr_info(market, code))
 
+    def get_transaction_data(
+        self, market: int, code: str, start: int, count: int
+    ) -> list[dict[str, Any]]:
+        """拉一页当日逐笔成交(失败换服务器)。"""
+        with self._lock:
+            return self._with_retry(
+                lambda c: c.get_transaction_data(market, code, start, count)
+            )
+
     def _with_retry(self, call: Callable[[TdxClient], Any]) -> Any:
         """执行一次请求;仅连接/帧异常时降级换服务器重试(最多几台);解码/Schema 类如实上抛。
 

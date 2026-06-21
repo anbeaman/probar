@@ -305,3 +305,39 @@ def decode_xdxr(body: bytes) -> list[dict[str, Any]]:
     if pos != len(body):
         raise SchemaChanged(f"通达信 xdxr 响应长度不符: pos {pos} != 实际 {len(body)}")
     return out
+
+
+def decode_ticks(body: bytes) -> list[dict[str, Any]]:
+    """解码 get_transaction_data(当日逐笔)响应 -> ``list[dict]``。
+
+    count(``<H`` 偏移 0)后每笔:time(``<H`` 分钟数 -> HH:MM)+ 价差(vint,累计)+ vol + num(笔数)
+    + buyorsell(0 主动买 / 1 主动卖 / 2 中性)+ 1 个保留 vint。价 = 累计价 / 100。
+    """
+    try:
+        (count,) = struct.unpack_from("<H", body, 0)
+        pos = 2
+        out: list[dict[str, Any]] = []
+        last = 0
+        for _ in range(count):
+            (tmin,) = struct.unpack_from("<H", body, pos)
+            pos += 2
+            price_diff, pos = read_vint(body, pos)
+            vol, pos = read_vint(body, pos)
+            num, pos = read_vint(body, pos)
+            buyorsell, pos = read_vint(body, pos)
+            _reserved, pos = read_vint(body, pos)
+            last += price_diff
+            out.append(
+                {
+                    "time": f"{tmin // 60:02d}:{tmin % 60:02d}",
+                    "price": last / 100.0,
+                    "vol": vol,
+                    "num": num,
+                    "buyorsell": buyorsell,
+                }
+            )
+    except (struct.error, IndexError) as e:
+        raise SchemaChanged(f"通达信 ticks 响应不符合预期协议布局: {e}") from e
+    if pos != len(body):
+        raise SchemaChanged(f"通达信 ticks 响应长度不符: pos {pos} != 实际 {len(body)}")
+    return out

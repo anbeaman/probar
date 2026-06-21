@@ -120,6 +120,19 @@ def classify_tdx_xdxr() -> tuple[str, str]:
     return "ok", f"{len(df)} 事件,{len(cat1)} 除权除息"
 
 
+def classify_tdx_ticks() -> tuple[str, str]:
+    try:
+        df = pb.tdx.ticks("600519.SH", limit=50)
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    expect = ["symbol", "time", "price", "vol", "num", "buyorsell"]
+    if list(df.columns) != expect:
+        return "schema", f"列契约变化: {list(df.columns)}"
+    if df.empty or (df["price"] <= 0).any():
+        return "data", f"成交价异常(前8): {df['price'].tolist()[:8]}"
+    return "ok", f"{len(df)} 笔,最新 {df['time'].iloc[-1]} @ {df['price'].iloc[-1]}"
+
+
 def main() -> int:
     results: list[tuple[str, str, str]] = [
         (f"dc.kline {s}", *classify_kline(s)) for s in PROBES
@@ -129,6 +142,7 @@ def main() -> int:
     results.append(("tdx.securities", *classify_tdx_securities()))
     results.append(("tdx.kline", *classify_tdx_kline()))
     results.append(("tdx.xdxr", *classify_tdx_xdxr()))
+    results.append(("tdx.ticks", *classify_tdx_ticks()))
     hard = [r for r in results if r[1] in ("schema", "data")]
 
     for label, status, detail in results:

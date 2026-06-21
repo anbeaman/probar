@@ -224,3 +224,19 @@ def apply_adjust(df: pd.DataFrame, events: list[dict[str, Any]], adjust: str) ->
         df[col] = (df[col] * factor).round(3)
     df["pct_chg"] = (df["close"].pct_change() * 100).round(4)
     return df
+
+
+_TICKS_COLUMNS = ["symbol", "time", "price", "vol", "num", "buyorsell"]
+
+
+def parse_ticks(raw: list[dict[str, Any]], *, symbol: str) -> pd.DataFrame:
+    """当日逐笔(已解码)-> DataFrame。空 -> :class:`NoData`。
+
+    time 为分钟级(HH:MM,同分钟可多笔);price 元、vol 手、num 笔数、
+    buyorsell(买卖方向,通达信原值:常见 0 买 / 1 卖 / 2 中性,集合竞价等为特殊值)。
+    """
+    if not raw:
+        raise NoData(f"通达信 ticks 无数据: {symbol}")
+    df = pd.DataFrame(raw)
+    df.insert(0, "symbol", symbol)
+    return df.reindex(columns=_TICKS_COLUMNS)

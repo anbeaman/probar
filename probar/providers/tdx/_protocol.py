@@ -84,6 +84,13 @@ class TdxClient:
         body = self._call(_build_xdxr_request(market, code))
         return _codec.decode_xdxr(body)
 
+    def get_transaction_data(
+        self, market: int, code: str, start: int, count: int
+    ) -> list[dict[str, Any]]:
+        """拉一页当日逐笔成交(start=距最新偏移,count<=约 2000),返回 ``list[dict]``。"""
+        body = self._call(_build_ticks_request(market, code, start, count))
+        return _codec.decode_ticks(body)
+
     # ---- 帧收发 ----
     def _call(self, pkg: bytes) -> bytes:
         sock = self._sock
@@ -183,3 +190,13 @@ def _build_xdxr_request(market: int, code: str) -> bytes:
     if market not in (0, 1, 2) or len(raw_code) != 6:
         raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
     return bytes.fromhex("0c1f187600010b000b000f000100") + struct.pack("<B6s", market, raw_code)
+
+
+def _build_ticks_request(market: int, code: str, start: int, count: int) -> bytes:
+    """组 get_transaction_data 请求(0x0fc5):前缀 + `<H6sHH`(market/code/start/count)。"""
+    raw_code = code.encode("ascii") if isinstance(code, str) else bytes(code)
+    if market not in (0, 1, 2) or len(raw_code) != 6:
+        raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
+    return bytes.fromhex("0c1708010101 0e000e00c50f".replace(" ", "")) + struct.pack(
+        "<H6sHH", market, raw_code, start, count
+    )

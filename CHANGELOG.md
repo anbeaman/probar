@@ -2,6 +2,12 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.6.0] - 2026-06-21
+
+### Added
+
+- 通达信 `pb.tdx.ticks`:当日逐笔成交(clean-room 自写 `get_transaction_data` 协议命令 `0x0fc5`;`<H` 分钟戳 + 5×变长整数,价差跨笔累加 /100,与参考实现逐笔零不符)。返回 `symbol/time(HH:MM)/price/vol(手)/num(笔数)/buyorsell`;协议按页(每页约 2000 笔)自动翻页拼成当日全量,`limit` 截最新 N 笔。`buyorsell` 保留通达信原值(常见 0 买 / 1 卖 / 2 中性,集合竞价等为特殊值,不强行归一)。属**分笔成交明细**,非 L2 逐笔委托。
+
 ## [0.5.0] - 2026-06-21
 
 ### Added
@@ -58,6 +64,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[0.6.0]: https://github.com/anbeaman/probar/releases/tag/v0.6.0
 [0.5.0]: https://github.com/anbeaman/probar/releases/tag/v0.5.0
 [0.4.0]: https://github.com/anbeaman/probar/releases/tag/v0.4.0
 [0.3.0]: https://github.com/anbeaman/probar/releases/tag/v0.3.0

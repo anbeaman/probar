@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 _FREQ_CATEGORY = {"1m": 8, "5m": 0, "15m": 1, "30m": 2, "60m": 3, "1d": 4, "1w": 5, "1M": 6}
 _BARS_PER_PAGE = 800   # 单次 get_security_bars 上限
 _MAX_OFFSET = 65000    # 通达信 start/offset 为 uint16(<65536);分钟线最深约 6.5 万根
+_TICKS_PER_PAGE = 2000  # 单次 get_transaction_data 上限
 
 _V = "v0.3"
 _SCHEMA = "tdx.quote/1"
@@ -206,8 +207,34 @@ class Tdx:
     def intraday_hist(self, symbol: str, *, date: str) -> pd.DataFrame:
         raise _todo("intraday_hist")
 
-    def ticks(self, symbol: str) -> pd.DataFrame:
-        raise _todo("ticks")
+    def ticks(self, symbol: str, *, limit: int = 2000) -> pd.DataFrame:
+        """当日逐笔成交,返回 DataFrame。
+
+        参数: symbol 证券代码;limit 最多笔数(默认 2000,取最新的;自动分页)。
+        返回列: symbol, time(HH:MM,分钟级), price(元), vol(手), num(笔数),
+            buyorsell(买卖方向,通达信原值:常见 0 买 / 1 卖 / 2 中性)。
+        说明: 当日数据(盘后为最近交易日);同一分钟可有多笔;全无数据抛 NoData。
+        示例:
+            >>> pb.tdx.ticks("600519.SH", limit=5)[["time", "price", "vol", "buyorsell"]]
+        """
+        market, code = symbols.to_tdx(symbol)
+        t = self._t()
+        raw: list[dict[str, Any]] = []
+        offset = 0
+        while offset <= _MAX_OFFSET:
+            page = t.get_transaction_data(market, code, offset, _TICKS_PER_PAGE)
+            if not page:
+                break
+            raw = page + raw          # offset 越大越早,旧页拼前 -> 整体时间升序
+            offset += len(page)
+            if len(page) < _TICKS_PER_PAGE:
+                break
+            if len(raw) >= limit:
+                break
+        df = parsers.parse_ticks(raw, symbol=str(symbols.normalize(symbol)))
+        if len(df) > limit:
+            df = df.tail(limit).reset_index(drop=True)
+        return stamp(df, source=self.name)
 
     def ticks_hist(self, symbol: str, *, date: str) -> pd.DataFrame:
         raise _todo("ticks_hist")

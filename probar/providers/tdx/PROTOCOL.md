@@ -75,5 +75,16 @@ category, 1, start, count, 0, 0, 0)`(命令 `0x052d`)。`category` 为周期(1m=
 songzhuangu 送转股 / peigu 配股,均每 10 股口径);category 11/12 缩股 = `<IIfI` 取第 3 个 float(suogu)。
 体长应精确为 `11 + 29 * count`。
 
+## 当日逐笔解码(get_transaction_data)
+
+**请求** —— 固定前缀 `0c1708010101 0e000e00c50f`(命令 `0x0fc5`)+ `<H6sHH (market, code, start, count)`;
+`start` 为距最新的偏移、`count` 每页约 2000 笔(上层自动翻页拼成当日全量)。
+
+**响应** —— 体偏移 0 的 `<H` 为逐笔数;每笔顺序:`<H` 分钟戳(自 0 点的分钟数,`HH:MM`)+ 5 个 **vint**:
+价差(跨笔累加,`(累计 base)/100` 得成交价)、vol(手)、num(笔数)、buyorsell(方向)、保留。
+体长应被全部 vint 精确消费(`pos == len(body)`,否则判 `SchemaChanged`)。`buyorsell` 取通达信原值:
+常见 `0` 买 / `1` 卖 / `2` 中性,集合竞价等为特殊值,不强行归一。
+
 > 已实现:`get_security_quotes`(实时五档)、`get_security_count` / `get_security_list`(证券列表)、
-> `get_security_bars`(K 线)、`get_xdxr_info`(除权除息)。分时 / 逐笔等命令按同一框架后续接入。
+> `get_security_bars`(K 线)、`get_xdxr_info`(除权除息)、`get_transaction_data`(当日逐笔)。
+> 历史逐笔 / 分时等命令按同一框架后续接入。
