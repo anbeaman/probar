@@ -2,6 +2,10 @@
 
 完整记录见仓库 [`CHANGELOG.md`](https://github.com/anbeaman/probar/blob/main/CHANGELOG.md)。
 
+## 0.5.0 (2026-06-21)
+
+- 通达信 `pb.tdx.kline` 支持前/后复权 `adjust="qfq"/"hfq"`(用 `xdxr` 除权除息自算;qfq 锚最新、hfq 锚窗口最早,窗口相对)。
+
 ## 0.4.0 (2026-06-21)
 
 - 通达信 `pb.tdx.xdxr`:除权除息事件(clean-room 自写 `get_xdxr_info`,与参考实现逐值零不符)。复权基石(qfq/hfq 接入 kline 见路线图)。

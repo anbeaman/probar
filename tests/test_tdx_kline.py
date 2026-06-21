@@ -101,11 +101,84 @@ def test_kline_client_range():
                                pd.Timestamp("2026-06-05")}
 
 
-def test_kline_adjust_not_supported():
+def test_kline_bad_adjust():
+    from probar import Tdx
+
+    with pytest.raises(ValueError):
+        Tdx().kline("600519.SH", adjust="xyz")
+
+
+def test_kline_weekly_adjust_not_supported():
     from probar import Tdx
 
     with pytest.raises(NotSupported):
-        Tdx().kline("600519.SH", adjust="qfq")
+        Tdx().kline("600519.SH", freq="1w", adjust="qfq")   # 周/月线复权不支持(整根跨除权日)
+
+
+def _kdf(closes, dates):
+    n = len(closes)
+    return pd.DataFrame({
+        "symbol": ["600519.SH"] * n,
+        "date": pd.to_datetime(dates),
+        "open": closes, "high": closes, "low": closes, "close": list(map(float, closes)),
+        "volume": [1.0] * n, "amount": [1.0] * n,
+        "pct_chg": [None] * n, "turnover": [float("nan")] * n,
+    })
+
+
+def test_apply_adjust_qfq_hfq():
+    from probar.providers.tdx import parsers
+
+    df = _kdf([10, 11, 12, 13], ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"])
+    # ex_date 01-03,分红 10 元/10股:前收盘=11 -> 参考价=(11*10-10)/10=10,因子=11/10=1.1
+    events = [{"category": 1, "date": "2024-01-03", "fenhong": 10.0,
+               "songzhuangu": 0.0, "peigu": 0.0, "peigujia": 0.0}]
+    hfq = parsers.apply_adjust(df, events, "hfq")
+    assert hfq["close"].iloc[0] == 10.0                       # hfq 锚最早
+    assert hfq["close"].iloc[-1] == pytest.approx(14.3)       # 13 * 1.1
+    qfq = parsers.apply_adjust(df, events, "qfq")
+    assert qfq["close"].iloc[-1] == 13.0                      # qfq 锚最新
+    assert qfq["close"].iloc[0] == pytest.approx(9.0909, abs=1e-3)   # 10 / 1.1
+    assert list(qfq["volume"]) == [1.0, 1.0, 1.0, 1.0]        # 量额不动
+    assert qfq["pct_chg"].iloc[1:].notna().all()             # pct_chg 重算
+
+
+def test_apply_adjust_no_events_unchanged():
+    from probar.providers.tdx import parsers
+
+    df = _kdf([10, 11], ["2024-01-01", "2024-01-02"])
+    assert list(parsers.apply_adjust(df, [], "qfq")["close"]) == [10.0, 11.0]
+
+
+class _AdjTransport:
+    server = ("198.51.100.7", 7709)
+
+    def __init__(self, bars, events):
+        self._bars, self._events = bars, events
+
+    def get_security_bars(self, category, market, code, start, count):
+        return self._bars if start == 0 else []
+
+    def get_xdxr_info(self, market, code):
+        return self._events
+
+    def close(self):
+        pass
+
+
+def test_kline_qfq_via_client():
+    from probar import Tdx
+
+    bars = [{"datetime": f"2024-01-{1 + i:02d} 15:00", "open": 10.0 + i, "close": 10.0 + i,
+             "high": 10.0 + i, "low": 10.0 + i, "vol": 1e5, "amount": 1e6} for i in range(5)]
+    events = [{"category": 1, "date": "2024-01-04", "fenhong": 10.0,
+               "songzhuangu": 0.0, "peigu": 0.0, "peigujia": 0.0}]
+    tdx = Tdx()
+    tdx._transport = _AdjTransport(bars, events)
+    q = tdx.kline("600519.SH", freq="1d", adjust="qfq", limit=5)
+    assert q["close"].iloc[-1] == pytest.approx(14.0)         # qfq 锚最新 == 原始最新
+    assert q["close"].iloc[0] < 10.0                          # 早段下调
+    assert q.attrs["adjust"] == "qfq"                         # stamp 记录 adjust(修复)
 
 
 def test_kline_bad_freq():

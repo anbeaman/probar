@@ -2,6 +2,16 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.5.0] - 2026-06-21
+
+### Added
+
+- 通达信 `pb.tdx.kline` 支持**前/后复权** `adjust="qfq"/"hfq"`:用 `xdxr` 除权除息事件自算(除权参考价 =(前收盘×10 − 分红 + 配股×配股价)/(10 + 送转 + 配股),逐事件累乘因子)。仅调 OHLC、`pct_chg` 按复权收盘重算;**qfq 锚最新一根、hfq 锚拉取窗口最早一根**(窗口相对,各源口径不同,不与东财逐值相等)。
+
+### Fixed
+
+- `pb.tdx.kline` 的 `df.attrs["adjust"]` 此前恒为 `"none"`,现正确记录实际复权方式。
+
 ## [0.4.0] - 2026-06-21
 
 ### Added
@@ -48,6 +58,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[0.5.0]: https://github.com/anbeaman/probar/releases/tag/v0.5.0
 [0.4.0]: https://github.com/anbeaman/probar/releases/tag/v0.4.0
 [0.3.0]: https://github.com/anbeaman/probar/releases/tag/v0.3.0
 [0.2.0]: https://github.com/anbeaman/probar/releases/tag/v0.2.0

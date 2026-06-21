@@ -147,11 +147,12 @@ class Tdx:
 
         参数:
             freq:   1m/5m/15m/30m/60m/1d/1w/1M(默认 1d)。
-            adjust: 仅支持 None/"none"(原始价);qfq/hfq 需除权除息数据,暂未支持(抛 NotSupported)。
+            adjust: None/"none"原始价 / "qfq"前复权 / "hfq"后复权(用除权除息 xdxr 自算)。
             start, end: "YYYY-MM-DD";省略 start 时取最近 limit 根。
             limit:  未给 start 时的最多根数(默认 800)。
         返回列: symbol, date, open, high, low, close, volume(手), amount(元), pct_chg(%), turnover。
-        说明: 通达信不直接给复权/换手率 —— turnover 恒 NaN,pct_chg 由收盘价自算;复权见路线图(xdxr)。
+        说明: turnover 恒 NaN;复权(qfq/hfq)用 xdxr 自算、仅调 OHLC、pct_chg 重算;
+            qfq 锚最新一根、hfq 锚窗口最早一根(窗口相对,各源口径不同)。
             面向 A 股**股票**(volume 股数 /100 转手);ETF/可转债"一手"未必 100 股,volume 仅供参考。
             分钟线受协议 offset(uint16)限制,最深约 6.5 万根。
         示例:
@@ -159,10 +160,11 @@ class Tdx:
         """
         if freq not in _FREQ_CATEGORY:
             raise ValueError(f"不支持的 freq={freq!r},可选: {list(_FREQ_CATEGORY)}")
-        if adjust not in (None, "none"):
-            raise NotSupported(
-                "通达信 K 线为原始价;前/后复权(qfq/hfq)需除权除息数据,计划后续接入 xdxr 后支持"
-            )
+        if adjust not in (None, "none", "qfq", "hfq"):
+            raise ValueError(f"不支持的 adjust={adjust!r},可选: None/'none'/'qfq'/'hfq'")
+        if adjust in ("qfq", "hfq") and freq in ("1w", "1M"):
+            # 周/月 bar 跨除权日,整根乘一个因子会产出错误复权价 -> 暂不支持
+            raise NotSupported("周/月线复权暂不支持(整根 bar 跨除权日);请对日线复权后自行重采样")
         category = _FREQ_CATEGORY[freq]
         if start is not None:
             start = pd.Timestamp(start).strftime("%Y-%m-%d")   # 归一日期,兼容未补零写法
@@ -185,6 +187,8 @@ class Tdx:
             elif raw[0]["datetime"][:10] < start:   # 已回溯到 start 之前(含一根前置)
                 break
         df = parsers.parse_kline(raw, symbol=str(symbols.normalize(symbol)), freq=freq)
+        if adjust in ("qfq", "hfq"):   # 用全窗口原始价 + 除权除息事件复权,再过滤
+            df = parsers.apply_adjust(df, t.get_xdxr_info(market, code), adjust)
         if start:
             df = df[df["date"] >= pd.Timestamp(start)]
         if end:
@@ -193,7 +197,8 @@ class Tdx:
             df = df.tail(limit)
         if df.empty:
             raise NoData(f"通达信 kline 区间无数据: {symbol}")
-        return stamp(df.reset_index(drop=True), source=self.name, freq=freq, adjust="none")
+        adj = adjust or "none"
+        return stamp(df.reset_index(drop=True), source=self.name, freq=freq, adjust=adj)
 
     def intraday(self, symbol: str) -> pd.DataFrame:
         raise _todo("intraday")

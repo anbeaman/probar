@@ -187,3 +187,40 @@ def parse_xdxr(raw: list[dict[str, Any]], *, symbol: str) -> pd.DataFrame:
     df.insert(0, "symbol", symbol)
     df["date"] = pd.to_datetime(df["date"])
     return df.reindex(columns=_XDXR_COLUMNS)
+
+
+def apply_adjust(df: pd.DataFrame, events: list[dict[str, Any]], adjust: str) -> pd.DataFrame:
+    """对**原始价** K 线 df 应用前(qfq)/后(hfq)复权;``events`` 为 get_xdxr_info 解码结果。
+
+    除权参考价 = (前收盘×10 - 分红 + 配股×配股价) / (10 + 送转 + 配股),每事件因子 = 前收盘/参考价;
+    后复权(hfq)锚定最早、前复权(qfq)锚定最新。仅调 OHLC(量额不动);pct_chg 按复权收盘重算。
+    仅用窗口内、且能取到前收盘的除权除息(category=1)事件。
+    """
+    df = df.copy()
+    factor = pd.Series(1.0, index=df.index)
+    cat1 = sorted((e for e in events if e.get("category") == 1), key=lambda e: e["date"])
+    for e in cat1:
+        ex = pd.Timestamp(e["date"])
+        prev = df.loc[df["date"] < ex, "close"]
+        if prev.empty:
+            continue                                 # 事件在窗口之前,取不到前收盘
+        p_prev = float(prev.iloc[-1])
+        fenhong = e.get("fenhong") or 0.0
+        songzhuangu = e.get("songzhuangu") or 0.0
+        peigu = e.get("peigu") or 0.0
+        peigujia = e.get("peigujia") or 0.0
+        denom = 10.0 + songzhuangu + peigu
+        if denom <= 0:
+            continue
+        ref = (p_prev * 10.0 - fenhong + peigu * peigujia) / denom
+        if ref <= 0:
+            continue
+        factor.loc[df["date"] >= ex] *= p_prev / ref
+    if adjust == "qfq":
+        factor = factor / factor.iloc[-1]            # 前复权:锚定最新一根 = 原始价
+    else:
+        factor = factor / factor.iloc[0]             # 后复权:锚定窗口最早一根 = 原始价
+    for col in ("open", "high", "low", "close"):
+        df[col] = (df[col] * factor).round(3)
+    df["pct_chg"] = (df["close"].pct_change() * 100).round(4)
+    return df
