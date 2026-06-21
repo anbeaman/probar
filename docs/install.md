@@ -8,9 +8,8 @@
 ## pip
 
 ```bash
-pip install probar                # 核心:东方财富(pb.dc) + 通达信(pb.tdx,规划中)
+pip install probar                # 核心:东方财富(pb.dc) + 通达信(pb.tdx),通达信协议纯标准库实现
 pip install "probar[ths]"         # 实验性:同花顺 / 问财(pb.ths,反爬 best-effort)
-pip install "probar[async]"       # 异步全市场扫描(规划中)
 pip install "probar[playground]"  # 本地接口可视化测试台
 ```
 

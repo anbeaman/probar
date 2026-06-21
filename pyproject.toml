@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "anbeaman" }]
 keywords = ["quant", "stock", "a-share", "eastmoney", "tdx", "tonghuashun", "行情", "量化"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.10",
@@ -26,9 +26,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# 同花顺/问财 为实验性数据源(反爬 best-effort,见 README 免责声明),计划 v0.3 落地
+# 同花顺/问财 为实验性数据源(反爬 best-effort,见 README 免责声明),路线图项
 ths = []
-# 异步全市场扫描,计划 v0.2 落地
+# 异步全市场扫描,路线图项(尚未实现;保留 extra 名以便后续无破坏接入)
 async = []
 # 通达信:二进制 TCP 协议为纯标准库自实现(clean-room),无需额外依赖;保留 extra 名以兼容
 tdx = []

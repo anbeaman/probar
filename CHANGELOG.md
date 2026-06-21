@@ -2,6 +2,27 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.0] - 2026-06-21
+
+**首个稳定版**。自此,**已实现的公共 API 进入语义化版本稳定承诺**——破坏性变更才升大版本。
+
+### 稳定面(stable)
+
+- `pb.dc`(东方财富):`quote / quotes / kline / intraday / fund_flow / lhb / financials / securities`。
+- `pb.tdx`(通达信,clean-room 纯标准库二进制协议,运行时零第三方依赖):`quotes / quote / securities / kline`(含 `qfq`/`hfq` 复权)`/ xdxr / ticks / ticks_hist / finance_info`。
+- `pb.capabilities()` 能力矩阵、结构化错误类型(`NoData` / `SchemaChanged` / `RateLimited` / `NotSupported` / `NetworkError`)、各接口**返回列契约**(列名 / 单位)。
+- (注:`df.attrs` 溯源元数据 source/server 等为 best-effort 调试用途,**不属稳定承诺**;pandas 运算/保存中易丢,勿承载业务必需字段。)
+
+### 不在稳定承诺内
+
+- `pb.ths`(同花顺):实验性,全程反爬 best-effort。
+- 路线图未实现项:调用抛 `NotImplementedError`。
+- `pb.tdx.intraday` / `intraday_hist`:有意不提供(分时已被 `kline(freq="1m")` 完全覆盖),抛 `NotSupported`。
+
+### Changed
+
+- 包元数据 `Development Status` 升至 `5 - Production/Stable`;README / 文档刷新至完整接口面(补全通达信 `ticks`/`ticks_hist`/`finance_info`、稳定性承诺、有意不做项);移除未实现的 `[async]` 安装项广告(异步仍在路线图)。
+
 ## [0.8.1] - 2026-06-21
 
 ### Fixed
@@ -86,6 +107,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[1.0.0]: https://github.com/anbeaman/probar/releases/tag/v1.0.0
 [0.8.1]: https://github.com/anbeaman/probar/releases/tag/v0.8.1
 [0.8.0]: https://github.com/anbeaman/probar/releases/tag/v0.8.0
 [0.7.0]: https://github.com/anbeaman/probar/releases/tag/v0.7.0

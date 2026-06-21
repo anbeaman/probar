@@ -78,7 +78,7 @@ pb.dc.kline("000001.SZ", freq="5m", limit=240)   # 分钟线
 ```
 
 !!! warning "注意"
-    - **1 分钟历史深度有限**(东财侧限制),要长历史分钟请用 5m 及以上,或用通达信(`pb.tdx`,规划中)。
+    - **1 分钟历史深度有限**(东财侧限制),要长历史分钟请用 5m 及以上,或用通达信 `pb.tdx.kline`(历史分钟更深)。
     - 复权由东财直接给(一个参数);`pb.tdx` 的复权是 probar 自算——**两源复权口径可能略有差异**,各源数据独立、不互相替换。
 
 ---
@@ -99,7 +99,7 @@ pb.dc.intraday(symbol)         # -> DataFrame
 ```
 
 !!! warning "注意"
-    返回的是**最近一个交易日**的分时;盘中调用为当日实时累积。历史某日分时请等 v0.2(`intraday_hist`)。
+    返回的是**最近一个交易日**的分时;盘中调用为当日实时累积。历史某日分时(`intraday_hist`)仍在规划中。
 
 ---
 
@@ -189,7 +189,7 @@ pb.dc.securities(page_size=1000)   # -> DataFrame
 ## 暂未实现(命名空间里已声明,调用抛 `NotImplementedError`)
 
 `intraday_hist`(历史分时)、`ticks`(分笔)、`hsgt`(北向/沪深港通)、`holders/unlock/dividend`、
-`industry/concept(_cons)`、`xdxr` —— 计划 v0.2 / v0.3 落地。
+`industry/concept(_cons)`、`xdxr` —— 路线图项,尚未实现。
 
 !!! note "北向资金"
     北向(沪深港通)**盘中实时**买卖/净流入自 2024 年起已停止披露,后续 `hsgt` 只会提供额度与盘后/EOD 数据。

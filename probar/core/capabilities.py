@@ -25,8 +25,8 @@ FULL, PART, SOFT, NONE = "✅", "🔸", "⚠️", "❌"
 CAPABILITIES: dict[str, dict[str, str]] = {
     "实时快照 quote":           {"dc": FULL, "tdx": FULL, "ths": SOFT},
     "五档盘口(仅L1)":           {"dc": FULL, "tdx": FULL, "ths": SOFT},
-    "当日分时 intraday":         {"dc": FULL, "tdx": FULL, "ths": SOFT},
-    "历史分时 intraday_hist":    {"dc": PART, "tdx": FULL, "ths": SOFT},
+    "当日分时 intraday":         {"dc": FULL, "tdx": PART, "ths": SOFT},
+    "历史分时 intraday_hist":    {"dc": PART, "tdx": PART, "ths": SOFT},
     "当日逐笔 ticks":            {"dc": PART, "tdx": FULL, "ths": SOFT},
     "历史逐笔 ticks_hist":       {"dc": NONE, "tdx": FULL, "ths": NONE},
     "K线 日/周/月":              {"dc": FULL, "tdx": FULL, "ths": SOFT},
