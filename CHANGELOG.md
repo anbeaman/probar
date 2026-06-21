@@ -2,6 +2,12 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.8.1] - 2026-06-21
+
+### Fixed
+
+- `pb.capabilities()` 能力矩阵修正:历史逐笔 `ticks_hist` 的通达信档位由 🔸PART 改为 ✅FULL(已 clean-room 全实现);通达信备注补充"分时用 `kline(freq='1m')` 取、`financials` 为股本/每股净资产快照"。新增回归测试钉住已实现接口档位,防矩阵与实现静默漂移。
+
 ## [0.8.0] - 2026-06-21
 
 ### Added
@@ -80,6 +86,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[0.8.1]: https://github.com/anbeaman/probar/releases/tag/v0.8.1
 [0.8.0]: https://github.com/anbeaman/probar/releases/tag/v0.8.0
 [0.7.0]: https://github.com/anbeaman/probar/releases/tag/v0.7.0
 [0.6.0]: https://github.com/anbeaman/probar/releases/tag/v0.6.0

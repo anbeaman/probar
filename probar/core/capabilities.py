@@ -28,7 +28,7 @@ CAPABILITIES: dict[str, dict[str, str]] = {
     "当日分时 intraday":         {"dc": FULL, "tdx": FULL, "ths": SOFT},
     "历史分时 intraday_hist":    {"dc": PART, "tdx": FULL, "ths": SOFT},
     "当日逐笔 ticks":            {"dc": PART, "tdx": FULL, "ths": SOFT},
-    "历史逐笔 ticks_hist":       {"dc": NONE, "tdx": PART, "ths": NONE},
+    "历史逐笔 ticks_hist":       {"dc": NONE, "tdx": FULL, "ths": NONE},
     "K线 日/周/月":              {"dc": FULL, "tdx": FULL, "ths": SOFT},
     "K线 分钟":                  {"dc": PART, "tdx": FULL, "ths": SOFT},
     "前/后复权 adjust":          {"dc": FULL, "tdx": PART, "ths": SOFT},
@@ -48,7 +48,9 @@ CAPABILITIES: dict[str, dict[str, str]] = {
 # 同花顺整体为反爬 best-effort:内容(题材/问财)是三源最强,但抓取可靠性最低。
 NOTES = {
     "ths": "全程反爬(hexin-v),best-effort;问财与细粒度概念题材为其独有价值。",
-    "tdx": "无资金流/龙虎榜/北向(协议无此数据域);复权需用 xdxr 自算;逐笔为分笔明细非 L2。",
+    "tdx": "无资金流/龙虎榜/北向(协议无此数据域);复权需用 xdxr 自算;逐笔为分笔明细非 L2;"
+           "分时数据用 kline(freq='1m')取(未单列 intraday);"
+           "financials 仅股本/每股净资产快照(金额报表用 dc)。",
     "dc": "数据最全(实时/复权/资金流/龙虎榜/财报);北向实时盘中已停披露,仅 EOD/额度。",
 }
 
