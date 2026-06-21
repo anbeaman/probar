@@ -77,12 +77,31 @@ def classify_tdx_quote() -> tuple[str, str]:
     return "ok", f"{len(df)} 只五档,server={df.attrs.get('server')}"
 
 
+def classify_tdx_securities() -> tuple[str, str]:
+    try:
+        df = pb.tdx.securities(use_cache=False)
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    if list(df.columns) != SECURITIES_COLUMNS:
+        return "schema", f"列契约变化: {list(df.columns)}"
+    markets = set(df["market"])
+    if not {"SH", "SZ"} <= markets:
+        return "data", f"缺沪深: {sorted(markets)}"
+    n_uniq = df["symbol"].nunique()
+    if n_uniq != len(df):
+        return "data", f"symbol 有重复: {len(df)} 行 / {n_uniq} 唯一"
+    if n_uniq < 4500:
+        return "data", f"仅 {n_uniq} 只(疑似偏少)"
+    return "ok", f"{n_uniq} 只沪深"
+
+
 def main() -> int:
     results: list[tuple[str, str, str]] = [
         (f"dc.kline {s}", *classify_kline(s)) for s in PROBES
     ]
     results.append(("dc.securities", *classify_securities()))
     results.append(("tdx.quotes", *classify_tdx_quote()))
+    results.append(("tdx.securities", *classify_tdx_securities()))
     hard = [r for r in results if r[1] in ("schema", "data")]
 
     for label, status, detail in results:

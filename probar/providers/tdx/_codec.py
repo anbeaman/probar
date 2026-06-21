@@ -164,3 +164,43 @@ def decode_quotes(body: bytes) -> list[dict[str, Any]]:
     if consumed != len(body):
         raise SchemaChanged(f"通达信 quote 响应长度不符:消费 {consumed} != 实际 {len(body)}")
     return out
+
+
+def decode_security_count(body: bytes) -> int:
+    """解 get_security_count 响应 -> 该市场证券数量(count 在偏移 0,uint16)。"""
+    try:
+        (count,) = struct.unpack_from("<H", body, 0)
+    except struct.error as e:
+        raise SchemaChanged(f"通达信 security_count 响应异常: {e}") from e
+    return count
+
+
+def decode_security_list(body: bytes, market: int) -> list[dict[str, Any]]:
+    """解 get_security_list 一页 -> ``list[dict]``(market/code/name/decimal/pre_close)。
+
+    count(``<H``)在偏移 0,随后每条 29 字节 ``<6sH8s4sBI4s``:
+    code(6 位 ascii)/ volunit / name(8 字节 GBK)/ 保留 / 小数位 / 昨收(压缩浮点)/ 保留。
+    """
+    try:
+        (count,) = struct.unpack_from("<H", body, 0)
+        pos = 2
+        out: list[dict[str, Any]] = []
+        for _ in range(count):
+            code_b, _vu, name_b, _r1, decimal, preclose_raw, _r2 = struct.unpack_from(
+                "<6sH8s4sBI4s", body, pos
+            )
+            pos += 29
+            out.append(
+                {
+                    "market": market,
+                    "code": code_b.decode("ascii"),
+                    "name": name_b.decode("gbk", errors="replace").rstrip("\x00").strip(),
+                    "decimal": decimal,
+                    "pre_close": decode_amount(preclose_raw),
+                }
+            )
+    except (struct.error, IndexError, UnicodeDecodeError) as e:
+        raise SchemaChanged(f"通达信 security_list 响应不符合预期协议布局: {e}") from e
+    if pos != len(body):
+        raise SchemaChanged(f"通达信 security_list 响应长度不符: pos {pos} != 实际 {len(body)}")
+    return out

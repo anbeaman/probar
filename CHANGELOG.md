@@ -2,6 +2,20 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.0] - 2026-06-21
+
+### Added
+
+- 通达信 `pb.tdx.securities`:沪深 A 股代码表 —— **clean-room 自写 `get_security_count` / `get_security_list` 协议命令**,按代码前缀从全品种筛出股票、GBK 名称解码(与参考实现逐条交叉验证零不符);默认 TTL 缓存。北交所经通达信行情服务器覆盖不稳定,北交所代码表请用 `pb.dc.securities`(各源独立)。
+
+### Fixed
+
+- 东财 datacenter(`lhb` / `financials` 等):"该日无数据"(`success=false` + code 9201"查询数据为空")被误判为 `SchemaChanged`,改为如实抛 `NoData`;未知失败仍 `SchemaChanged`。
+
+### Changed
+
+- 通达信传输层重构为通用 `_with_retry`(连接/帧异常降级换服务器,解码/Schema 类如实上抛);默认连接超时 5→8s。
+
 ## [0.1.0] - 2026-06-21
 
 首个公开发布。**稳定公共 API 仅含已实现接口**(下列);命名空间里的占位接口与路线图项**不属于** v0.1.0 稳定承诺。
@@ -22,4 +36,5 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[0.2.0]: https://github.com/anbeaman/probar/releases/tag/v0.2.0
 [0.1.0]: https://github.com/anbeaman/probar/releases/tag/v0.1.0

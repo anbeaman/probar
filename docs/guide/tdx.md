@@ -56,18 +56,30 @@ df.attrs["schema_version"]  # 'tdx.quote/1'
 - `name` 恒为 `None` —— 需要名称用 `pb.dc.quote` 或后续的 `tdx.securities` 映射。
 - 北交所(BJ)能否取到取决于具体服务器(部分标准行情站不含北交所);服务器池会自动挑能用的。
 
+## `securities` —— 沪深 A 股代码表(v0.2,已实现)
+
+```python
+df = pb.tdx.securities()        # -> DataFrame,默认缓存 1h
+```
+
+- **返回列**:`symbol, code, name, market(SH/SZ), asset_type("stock")`。名称来自通达信(GBK 解码)。
+- **机制**:通达信按市场分页拉**全品种**(每页 1000)再按代码前缀筛出股票,首次 ~5s、之后走缓存;
+  `use_cache=False` 强制刷新,`Tdx(cache_ttl=...)` 调缓存时长。
+- **不含北交所**:通达信行情服务器对北交所覆盖不稳定,**北交所代码表请用 `pb.dc.securities`**(各源独立)。
+- 名称与东财可能略有出入(各源数据独立,不互相替换)。
+
 ## 路线图(其余接口)
 
 命名空间已声明完整接口面,未实现者调用抛 `NotImplementedError` 并注明计划版本:
 
 | 接口 | 状态 | 说明 |
 |---|---|---|
-| `quotes` / `quote` | ✅ v0.3 | 批量实时五档(标杆) |
+| `quotes` / `quote` | ✅ v0.1 | 批量实时五档 |
+| `securities` | ✅ v0.2 | 沪深 A 股代码表(北交所用 `pb.dc`) |
 | `kline(freq=日/周/月/分钟, adjust=...)` | 规划 | K 线(复权自算) |
 | `intraday` / `intraday_hist` | 规划 | 当日 / 历史分时 |
 | `ticks` / `ticks_hist` | 规划 | 当日 / 历史逐笔(分笔成交明细,**非** L2 逐笔委托) |
 | `xdxr` | 规划 | 除权除息(用于复权) |
-| `securities` | 规划 | 全市场代码表 |
 | `block` | 规划 | 本地板块 |
 | `finance_info` | 规划 | 基础财务 |
 

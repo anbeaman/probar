@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from typing import Any
 
 from ...core.errors import NetworkError
@@ -104,22 +105,37 @@ class TdxTransport:
         with self._lock:
             out: list[dict[str, Any]] = []
             for start in range(0, len(market_code), MAX_PER_REQUEST):
-                out.extend(self._request_chunk(market_code[start : start + MAX_PER_REQUEST]))
+                out.extend(self._fetch_quotes(market_code[start : start + MAX_PER_REQUEST]))
             return out
 
-    def _request_chunk(self, chunk: list[tuple[int, str]]) -> list[dict[str, Any]]:
+    def _fetch_quotes(self, chunk: list[tuple[int, str]]) -> list[dict[str, Any]]:
+        return self._with_retry(lambda c: c.get_security_quotes(chunk))
+
+    def get_security_count(self, market: int) -> int:
+        """拉某市场证券数量(失败换服务器)。"""
+        with self._lock:
+            return self._with_retry(lambda c: c.get_security_count(market))
+
+    def get_security_list(self, market: int, start: int) -> list[dict[str, Any]]:
+        """拉某市场证券列表的一页(失败换服务器)。"""
+        with self._lock:
+            return self._with_retry(lambda c: c.get_security_list(market, start))
+
+    def _with_retry(self, call: Callable[[TdxClient], Any]) -> Any:
+        """执行一次请求;仅连接/帧异常时降级换服务器重试(最多几台);解码/Schema 类如实上抛。
+
+        每次失败把当前服务器降到队尾,确保下次 _ensure 真换一台;底层异常细节不外泄(走 cause 链)。
+        """
         last: Exception | None = None
-        # 最多试几台**不同**服务器:每次失败把当前服务器降级到队尾,确保下次 _ensure 真换一台
         for _ in range(min(3, len(self._servers))):
             client = self._ensure()
             self._bucket.acquire()
             try:
-                return client.get_security_quotes(chunk)
+                return call(client)
             except (OSError, TdxProtocolError) as e:
-                last = e  # 仅连接/帧异常降级换服务器;解码/SchemaChanged 类如实上抛(见 _codec)
+                last = e
                 self._demote_current()
-        # 不外泄底层异常细节:概括原因,cause 走异常链(traceback 可见,str 干净)
-        raise NetworkError("通达信 get_security_quotes 失败(已换多台服务器重试)") from last
+        raise NetworkError("通达信请求失败(已换多台服务器重试)") from last
 
     @property
     def server(self) -> tuple[str, int] | None:

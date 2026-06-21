@@ -94,6 +94,20 @@ def test_datacenter_result_null_is_nodata():
         )
 
 
+def test_datacenter_empty_code_is_nodata():
+    # 该日无榜:success=false + code 9201 + "查询数据为空" -> NoData(非 SchemaChanged)
+    payload = {"success": False, "result": None, "code": 9201, "message": "查询数据为空"}
+    with pytest.raises(NoData):
+        parsers.parse_datacenter(payload, mapping=ep.LHB_MAP, interface="lhb")
+
+
+def test_datacenter_unknown_failure_is_schema_changed():
+    # 真正异常的失败响应仍应抛 SchemaChanged,不被当成空数据掩盖
+    payload = {"success": False, "result": None, "code": 1, "message": "服务异常"}
+    with pytest.raises(SchemaChanged):
+        parsers.parse_datacenter(payload, mapping=ep.LHB_MAP, interface="lhb")
+
+
 def test_lhb_rejects_bad_date():
     import probar as pb
 

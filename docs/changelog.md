@@ -2,6 +2,12 @@
 
 完整记录见仓库 [`CHANGELOG.md`](https://github.com/anbeaman/probar/blob/main/CHANGELOG.md)。
 
+## 0.2.0 (2026-06-21)
+
+- 通达信 `pb.tdx.securities`:沪深 A 股代码表(clean-room 自写协议命令,按前缀筛股票 + GBK 名称;默认缓存)。北交所请用 `pb.dc.securities`。
+- 修复:东财 datacenter "该日无数据"(code 9201)误判 `SchemaChanged` → 改 `NoData`。
+- 通达信传输层重构为通用失败换服务器;默认连接超时 5→8s。
+
 ## 0.1.0 (2026-06-21)
 
 - 按数据源拆分命名空间 `pb.dc / pb.tdx / pb.ths`(各源数据独立、不互相替换);每个只暴露该源真实支持的接口。

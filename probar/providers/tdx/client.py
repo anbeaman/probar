@@ -18,8 +18,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ...core import symbols
-from ...core.errors import NoData
-from ...core.models import QUOTE_COLUMNS, ensure_columns, stamp
+from ...core.cache import TTLCache
+from ...core.errors import NoData, SchemaChanged
+from ...core.models import QUOTE_COLUMNS, SECURITIES_COLUMNS, ensure_columns, stamp
 from . import parsers
 
 if TYPE_CHECKING:
@@ -46,14 +47,16 @@ class Tdx:
     def __init__(
         self,
         *,
-        timeout: float = 5.0,
+        timeout: float = 8.0,
         rate: float = 10.0,
         servers: list[tuple[str, int]] | None = None,
+        cache_ttl: float = 3600.0,
     ) -> None:
         self.timeout = timeout
         self.rate = rate
         self.servers = servers  # None -> 内置已验证服务器池(由 canary 定期业务探针刷新)
         self._transport: TdxTransport | None = None
+        self._cache: TTLCache = TTLCache(ttl=cache_ttl)  # securities 等慢变全量数据
 
     def __repr__(self) -> str:  # noqa: D105
         return f"<Tdx source='tdx' servers={'auto' if not self.servers else len(self.servers)}>"
@@ -144,8 +147,44 @@ class Tdx:
     def xdxr(self, symbol: str) -> pd.DataFrame:
         raise _todo("xdxr")
 
-    def securities(self) -> pd.DataFrame:
-        raise _todo("securities")
+    def securities(self, *, use_cache: bool = True) -> pd.DataFrame:
+        """**沪深** A 股代码表,返回 DataFrame(从通达信全品种列表筛出股票)。
+
+        参数: use_cache 是否走 TTL 缓存(默认 True,默认缓存 1h,见 Tdx(cache_ttl=))。
+        返回列: symbol, code, name, market(SH/SZ), asset_type(固定 "stock")。
+        说明: 通达信按市场分页拉**全品种**(每页 1000)再按代码前缀筛股票,故默认整表缓存;
+            `use_cache=False` 强制刷新。名称来自通达信(GBK 解码),与东财可能略有出入(各源独立)。
+            **不含北交所**:通达信行情服务器对北交所覆盖不稳定,北交所代码表请用 `pb.dc.securities`。
+        示例:
+            >>> df = pb.tdx.securities()
+            >>> list(df.columns)
+            ['symbol', 'code', 'name', 'market', 'asset_type']
+        """
+        if use_cache:
+            cached = self._cache.get("securities")
+            if cached is not None:
+                return cached.copy(deep=True)  # 防用户原地改写污染缓存
+        t = self._t()
+        raw: list[dict[str, Any]] = []
+        for market in (0, 1):   # 深 / 沪(北交所 TDX 覆盖不稳,见 docstring,交给 pb.dc)
+            count = t.get_security_count(market)
+            start = 0
+            while start < count:
+                page = t.get_security_list(market, start)
+                if not page:   # 还没到 count 却返回空页 = 异常,别静默返回残表
+                    raise SchemaChanged(
+                        f"通达信 securities: market {market} 在 {start}/{count} 处返回空页"
+                    )
+                raw.extend(page)
+                start += len(page)
+        df = parsers.parse_securities(raw)
+        ensure_columns(df, SECURITIES_COLUMNS, source=self.name, interface="securities")
+        if not {"SH", "SZ"} <= set(df["market"]):   # 缓存前校验沪深都在,不缓存残表
+            raise SchemaChanged(f"通达信 securities 缺市场: 实得 {sorted(set(df['market']))}")
+        result = stamp(df, source=self.name, schema_version="tdx.securities/1", coverage="SH+SZ")
+        if use_cache:
+            self._cache.set("securities", result.copy(deep=True))
+        return result
 
     def block(self) -> pd.DataFrame:
         raise _todo("block")

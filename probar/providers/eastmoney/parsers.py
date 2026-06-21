@@ -203,10 +203,22 @@ def parse_datacenter(
     """解析数据中心(datacenter-web v1)结构化 JSON,按 ``mapping`` 选列重命名。"""
     result = payload.get("result")
     if result is None:
-        # datacenter 对"无匹配数据"通常返回 result=null
-        if payload.get("success"):
-            raise NoData(f"东财 {interface} 无数据")
-        raise SchemaChanged(f"东财 {interface} 响应异常:result=null 且 success 非真")
+        # datacenter 对"无匹配数据"返回 result=null:或 success=true,或 success=false + code 9201
+        # ("查询数据为空")—— 都是**合法无数据**(NoData),不是字段变更。
+        msg = str(payload.get("message") or "")
+        success = payload.get("success")
+        # 合法无数据:success 为真(空结果),或 success 假 + code 9201 + 消息明示"数据为空"
+        empty = bool(success) or (
+            not success
+            and payload.get("code") == 9201
+            and ("数据为空" in msg or "无数据" in msg)
+        )
+        if empty:
+            raise NoData(f"东财 {interface} 无数据" + (f": {msg}" if msg else ""))
+        raise SchemaChanged(
+            f"东财 {interface} 响应异常:result=null 且非已知空数据"
+            f"(code={payload.get('code')}, msg={msg})"
+        )
     if not isinstance(result, dict) or "data" not in result:
         raise SchemaChanged(f"东财 {interface} 响应缺少 result.data 结构")
     data = result["data"]

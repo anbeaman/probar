@@ -13,7 +13,7 @@ import pandas as pd
 
 from ...core import symbols
 from ...core.errors import NoData, SchemaChanged
-from ...core.models import TDX_QUOTE_COLUMNS
+from ...core.models import SECURITIES_COLUMNS, TDX_QUOTE_COLUMNS
 
 # 解析必需的关键字段:缺失即视为协议/字段变更(SchemaChanged)。
 # 含 bid1/ask1 —— 这是五档接口,缺盘口即说明协议层已变,不该静默返回 None。
@@ -84,3 +84,52 @@ def parse_quotes(raw: list[dict[str, Any]]) -> pd.DataFrame:
         rows.append(row)
 
     return pd.DataFrame(rows, columns=TDX_QUOTE_COLUMNS)
+
+
+# A 股股票代码前缀(按 TDX market):用于从全品种列表里筛出股票,排除指数/ETF/债券/回购等
+_STOCK_PREFIX: dict[int, tuple[str, ...]] = {
+    0: ("000", "001", "002", "003", "300", "301"),   # 深:主板 / 中小 / 创业
+    1: ("600", "601", "603", "605", "688", "689"),   # 沪:主板 / 科创(含 689 CDR)
+    2: ("43", "83", "87", "88", "92"),               # 北
+}
+
+
+def is_a_share_stock(market: int, code: str) -> bool:
+    """该 (market, code) 是否 A 股股票(按代码前缀;排除指数/ETF/债券/回购等)。"""
+    return code.startswith(_STOCK_PREFIX.get(market, ()))
+
+
+def parse_securities(raw: list[dict[str, Any]]) -> pd.DataFrame:
+    """全品种列表(已解码)-> 仅 A 股股票的 ``[symbol, code, name, market, asset_type]``。
+
+    TDX ``get_security_list`` 返回市场内**所有品种**(含指数/ETF/债),此处按代码前缀筛出股票;
+    market 数字编码经 :func:`symbols.from_tdx` 还原为规范市场,不外泄;按 symbol 去重。
+    空列表 / 全被过滤 -> :class:`NoData`。
+    """
+    rows = []
+    seen: set[str] = set()
+    for r in raw:
+        market, code = r.get("market"), r.get("code")
+        if not isinstance(market, int) or not isinstance(code, str) or not code.isdigit():
+            raise SchemaChanged(f"通达信 securities 行非法: market={market!r} code={code!r}")
+        if not is_a_share_stock(market, code):
+            continue
+        try:
+            sym = symbols.from_tdx(market, code)
+        except ValueError as e:
+            raise SchemaChanged(f"通达信 securities 行 market 非法: {market!r}") from e
+        if sym.ts_code in seen:
+            continue
+        seen.add(sym.ts_code)
+        rows.append(
+            {
+                "symbol": sym.ts_code,
+                "code": code,
+                "name": r.get("name"),
+                "market": sym.market,
+                "asset_type": "stock",
+            }
+        )
+    if not rows:
+        raise NoData("通达信 securities 无 A 股股票(品种列表为空或全被过滤)")
+    return pd.DataFrame(rows, columns=SECURITIES_COLUMNS)

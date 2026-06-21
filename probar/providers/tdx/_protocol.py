@@ -62,6 +62,16 @@ class TdxClient:
         body = self._call(_build_quotes_request(market_code))
         return _codec.decode_quotes(body)
 
+    def get_security_count(self, market: int) -> int:
+        """拉某市场证券数量(market: 0=深 1=沪 2=北)。"""
+        body = self._call(_build_count_request(market))
+        return _codec.decode_security_count(body)
+
+    def get_security_list(self, market: int, start: int) -> list[dict[str, Any]]:
+        """拉某市场证券列表一页(每页最多 1000 条),返回 ``list[dict]``。"""
+        body = self._call(_build_list_request(market, start))
+        return _codec.decode_security_list(body, market)
+
     # ---- 帧收发 ----
     def _call(self, pkg: bytes) -> bytes:
         sock = self._sock
@@ -127,3 +137,17 @@ def _build_quotes_request(market_code: list[tuple[int, str]]) -> bytes:
             raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
         pkg += struct.pack("<B6s", market, raw_code)
     return bytes(pkg)
+
+
+def _build_count_request(market: int) -> bytes:
+    """组 get_security_count 请求:固定前缀 + market(<H) + 固定尾(均为协议事实)。"""
+    return (
+        bytes.fromhex("0c0c186c0001080008004e04")
+        + struct.pack("<H", market)
+        + bytes.fromhex("75c73301")
+    )
+
+
+def _build_list_request(market: int, start: int) -> bytes:
+    """组 get_security_list 请求:固定前缀 + market(<H) + start(<H)。"""
+    return bytes.fromhex("0c0118640101060006005004") + struct.pack("<HH", market, start)
