@@ -68,6 +68,19 @@ df = pb.tdx.securities()        # -> DataFrame,默认缓存 1h
 - **不含北交所**:通达信行情服务器对北交所覆盖不稳定,**北交所代码表请用 `pb.dc.securities`**(各源独立)。
 - 名称与东财可能略有出入(各源数据独立,不互相替换)。
 
+## `kline` —— 历史 K 线(v0.3,已实现)
+
+```python
+df = pb.tdx.kline("600519.SH", freq="1d", limit=300)           # 最近 300 根日线(原始价)
+df = pb.tdx.kline("000001.SZ", freq="5m", start="2026-06-01")  # 区间分钟线
+```
+
+- **参数**:`freq` = `1m/5m/15m/30m/60m/1d/1w/1M`;`start`/`end` = `"YYYY-MM-DD"`(省略 start 取最近 `limit` 根);
+  `adjust` 仅支持 `None`(原始价),`qfq`/`hfq` 抛 `NotSupported`(复权需 xdxr,见路线图)。
+- **返回列**:`symbol, date, open, high, low, close, volume(手), amount(元), pct_chg(%), turnover`。
+- **注意**:通达信 K 线是**原始价**(未复权);`turnover` 恒为 `NaN`(协议不提供换手率),`pct_chg` 由收盘价自算。
+  分钟历史比东财更深,是通达信的强项。
+
 ## 路线图(其余接口)
 
 命名空间已声明完整接口面,未实现者调用抛 `NotImplementedError` 并注明计划版本:
@@ -76,7 +89,7 @@ df = pb.tdx.securities()        # -> DataFrame,默认缓存 1h
 |---|---|---|
 | `quotes` / `quote` | ✅ v0.1 | 批量实时五档 |
 | `securities` | ✅ v0.2 | 沪深 A 股代码表(北交所用 `pb.dc`) |
-| `kline(freq=日/周/月/分钟, adjust=...)` | 规划 | K 线(复权自算) |
+| `kline` | ✅ v0.3 | 历史 K 线(原始价;复权需 xdxr) |
 | `intraday` / `intraday_hist` | 规划 | 当日 / 历史分时 |
 | `ticks` / `ticks_hist` | 规划 | 当日 / 历史逐笔(分笔成交明细,**非** L2 逐笔委托) |
 | `xdxr` | 规划 | 除权除息(用于复权) |

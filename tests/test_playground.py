@@ -41,7 +41,8 @@ def test_interfaces_catalog():
 
 def test_call_stub_returns_error_cleanly():
     r = client.post(
-        "/api/call", json={"namespace": "tdx", "method": "kline", "params": {"symbol": "000001.SZ"}}
+        "/api/call",
+        json={"namespace": "tdx", "method": "intraday", "params": {"symbol": "000001.SZ"}},
     )
     j = r.json()
     assert j["ok"] is False

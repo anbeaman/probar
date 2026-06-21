@@ -204,3 +204,60 @@ def decode_security_list(body: bytes, market: int) -> list[dict[str, Any]]:
     if pos != len(body):
         raise SchemaChanged(f"通达信 security_list 响应长度不符: pos {pos} != 实际 {len(body)}")
     return out
+
+
+def _kline_datetime(category: int, buf: bytes, pos: int) -> tuple[int, int, int, int, int, int]:
+    """按 K 线周期解出 (年,月,日,时,分,新位置)。分钟级含时分,日及以上仅日期(时=15分=0)。"""
+    if category < 4 or category in (7, 8):   # 分钟级(5/15/30/60min、1min):4 字节 = 日(H)+ 分钟数(H)
+        zipday, tmin = struct.unpack_from("<HH", buf, pos)
+        year = (zipday >> 11) + 2004
+        month = (zipday % 2048) // 100
+        day = (zipday % 2048) % 100
+        hour, minute = tmin // 60, tmin % 60
+    else:                                    # 日/周/月:4 字节 = YYYYMMDD(I)
+        (zipday,) = struct.unpack_from("<I", buf, pos)
+        year, month, day = zipday // 10000, (zipday % 10000) // 100, zipday % 100
+        hour, minute = 15, 0
+    return year, month, day, hour, minute, pos + 4
+
+
+def decode_kline(body: bytes, category: int) -> list[dict[str, Any]]:
+    """解码 get_security_bars 响应 -> ``list[dict]``(datetime/open/close/high/low/vol/amount)。
+
+    count(``<H``)在偏移 0;每 bar:datetime(按 category)+ 开/收/高/低 4 个 vint **跨 bar 差分**
+    + vol/amount 各 ``<I``(压缩浮点)。价格用 ``/1000``:开 = (开差 + 上一 bar 收基准)/1000,
+    收/高/低 = (绝对开 + 各自差分)/1000;下一 bar 的基准 = 绝对开 + 收差。
+    """
+    try:
+        (count,) = struct.unpack_from("<H", body, 0)
+        pos = 2
+        out: list[dict[str, Any]] = []
+        base = 0
+        for _ in range(count):
+            year, month, day, hour, minute, pos = _kline_datetime(category, body, pos)
+            open_diff, pos = read_vint(body, pos)
+            close_diff, pos = read_vint(body, pos)
+            high_diff, pos = read_vint(body, pos)
+            low_diff, pos = read_vint(body, pos)
+            (vol_raw,) = struct.unpack_from("<I", body, pos)
+            pos += 4
+            (amount_raw,) = struct.unpack_from("<I", body, pos)
+            pos += 4
+            abs_open = open_diff + base
+            out.append(
+                {
+                    "datetime": f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}",
+                    "open": abs_open / 1000.0,
+                    "close": (abs_open + close_diff) / 1000.0,
+                    "high": (abs_open + high_diff) / 1000.0,
+                    "low": (abs_open + low_diff) / 1000.0,
+                    "vol": decode_amount(vol_raw),
+                    "amount": decode_amount(amount_raw),
+                }
+            )
+            base = abs_open + close_diff
+    except (struct.error, IndexError, OverflowError) as e:
+        raise SchemaChanged(f"通达信 kline 响应不符合预期协议布局: {e}") from e
+    if pos != len(body):
+        raise SchemaChanged(f"通达信 kline 响应长度不符: pos {pos} != 实际 {len(body)}")
+    return out

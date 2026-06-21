@@ -35,6 +35,6 @@ def test_unimplemented_raise_not_implemented():
     import pytest
 
     with pytest.raises(NotImplementedError):
-        pb.tdx.kline("000001.SZ")
+        pb.tdx.intraday("000001.SZ")   # 仍是 stub(kline 已实现)
     with pytest.raises(NotImplementedError):
         pb.ths.wencai("涨停")

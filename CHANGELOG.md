@@ -2,6 +2,12 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.0] - 2026-06-21
+
+### Added
+
+- 通达信 `pb.tdx.kline`:历史 K 线(**原始价**,clean-room 自写 `get_security_bars` 协议命令;跨 bar 差分 + 压缩浮点解码,与参考实现逐 bar 零不符)。支持 `1m/5m/15m/30m/60m/1d/1w/1M`,`start`/`end`/`limit` 分页;`volume` 由股数转手、`pct_chg` 由收盘价自算;`turnover` 恒 `NaN`、`qfq`/`hfq` 复权需除权除息数据(暂抛 `NotSupported`,计划后续接入 xdxr)。
+
 ## [0.2.0] - 2026-06-21
 
 ### Added
@@ -36,5 +42,6 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[0.3.0]: https://github.com/anbeaman/probar/releases/tag/v0.3.0
 [0.2.0]: https://github.com/anbeaman/probar/releases/tag/v0.2.0
 [0.1.0]: https://github.com/anbeaman/probar/releases/tag/v0.1.0

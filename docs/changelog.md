@@ -2,6 +2,10 @@
 
 完整记录见仓库 [`CHANGELOG.md`](https://github.com/anbeaman/probar/blob/main/CHANGELOG.md)。
 
+## 0.3.0 (2026-06-21)
+
+- 通达信 `pb.tdx.kline`:历史 K 线(原始价,clean-room 自写 `get_security_bars`;支持 1m~月线、start/end/limit)。复权需 xdxr(暂 `NotSupported`)。
+
 ## 0.2.0 (2026-06-21)
 
 - 通达信 `pb.tdx.securities`:沪深 A 股代码表(clean-room 自写协议命令,按前缀筛股票 + GBK 名称;默认缓存)。北交所请用 `pb.dc.securities`。

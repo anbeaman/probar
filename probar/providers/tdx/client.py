@@ -17,16 +17,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import pandas as pd
+
 from ...core import symbols
 from ...core.cache import TTLCache
-from ...core.errors import NoData, SchemaChanged
+from ...core.errors import NoData, NotSupported, SchemaChanged
 from ...core.models import QUOTE_COLUMNS, SECURITIES_COLUMNS, ensure_columns, stamp
 from . import parsers
 
 if TYPE_CHECKING:
-    import pandas as pd
-
     from .transport import TdxTransport
+
+# freq -> 通达信 K 线周期 category
+_FREQ_CATEGORY = {"1m": 8, "5m": 0, "15m": 1, "30m": 2, "60m": 3, "1d": 4, "1w": 5, "1M": 6}
+_BARS_PER_PAGE = 800   # 单次 get_security_bars 上限
+_MAX_OFFSET = 65000    # 通达信 start/offset 为 uint16(<65536);分钟线最深约 6.5 万根
 
 _V = "v0.3"
 _SCHEMA = "tdx.quote/1"
@@ -128,8 +133,67 @@ class Tdx:
         return {k: _native(v) for k, v in row.iloc[0].to_dict().items()}
 
     # ---- 行情:待实现(占位,调用抛 NotImplementedError) ----
-    def kline(self, symbol: str, *, freq: str = "1d", adjust: str | None = None) -> pd.DataFrame:
-        raise _todo("kline")
+    def kline(
+        self,
+        symbol: str,
+        *,
+        freq: str = "1d",
+        adjust: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        limit: int = 800,
+    ) -> pd.DataFrame:
+        """历史 K 线(**原始价**,未复权),返回 DataFrame。
+
+        参数:
+            freq:   1m/5m/15m/30m/60m/1d/1w/1M(默认 1d)。
+            adjust: 仅支持 None/"none"(原始价);qfq/hfq 需除权除息数据,暂未支持(抛 NotSupported)。
+            start, end: "YYYY-MM-DD";省略 start 时取最近 limit 根。
+            limit:  未给 start 时的最多根数(默认 800)。
+        返回列: symbol, date, open, high, low, close, volume(手), amount(元), pct_chg(%), turnover。
+        说明: 通达信不直接给复权/换手率 —— turnover 恒 NaN,pct_chg 由收盘价自算;复权见路线图(xdxr)。
+            面向 A 股**股票**(volume 股数 /100 转手);ETF/可转债"一手"未必 100 股,volume 仅供参考。
+            分钟线受协议 offset(uint16)限制,最深约 6.5 万根。
+        示例:
+            >>> pb.tdx.kline("600519.SH", freq="1d", limit=3)[["date", "close", "volume"]]
+        """
+        if freq not in _FREQ_CATEGORY:
+            raise ValueError(f"不支持的 freq={freq!r},可选: {list(_FREQ_CATEGORY)}")
+        if adjust not in (None, "none"):
+            raise NotSupported(
+                "通达信 K 线为原始价;前/后复权(qfq/hfq)需除权除息数据,计划后续接入 xdxr 后支持"
+            )
+        category = _FREQ_CATEGORY[freq]
+        if start is not None:
+            start = pd.Timestamp(start).strftime("%Y-%m-%d")   # 归一日期,兼容未补零写法
+        market, code = symbols.to_tdx(symbol)
+        t = self._t()
+        raw: list[dict[str, Any]] = []
+        offset = 0
+        while offset <= _MAX_OFFSET:   # offset 为 uint16,超限即停(分钟线深度上限)
+            page = t.get_security_bars(category, market, code, offset, _BARS_PER_PAGE)
+            if not page:
+                break
+            raw = page + raw          # offset 越大越旧,旧页拼前面 -> 整体按时间升序
+            offset += len(page)
+            if len(page) < _BARS_PER_PAGE:
+                break                 # 没有更早的历史了
+            # 多拉一根前置 bar:保证过滤/截断后首行 pct_chg 相对前一根、而非 NaN
+            if start is None:
+                if len(raw) > limit:
+                    break
+            elif raw[0]["datetime"][:10] < start:   # 已回溯到 start 之前(含一根前置)
+                break
+        df = parsers.parse_kline(raw, symbol=str(symbols.normalize(symbol)), freq=freq)
+        if start:
+            df = df[df["date"] >= pd.Timestamp(start)]
+        if end:
+            df = df[df["date"] < pd.Timestamp(end) + pd.Timedelta(days=1)]
+        if start is None and len(df) > limit:
+            df = df.tail(limit)
+        if df.empty:
+            raise NoData(f"通达信 kline 区间无数据: {symbol}")
+        return stamp(df.reset_index(drop=True), source=self.name, freq=freq, adjust="none")
 
     def intraday(self, symbol: str) -> pd.DataFrame:
         raise _todo("intraday")

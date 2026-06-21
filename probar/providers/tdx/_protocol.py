@@ -72,6 +72,13 @@ class TdxClient:
         body = self._call(_build_list_request(market, start))
         return _codec.decode_security_list(body, market)
 
+    def get_security_bars(
+        self, category: int, market: int, code: str, start: int, count: int
+    ) -> list[dict[str, Any]]:
+        """拉一页 K 线 bar(category=周期;start=距最新的偏移,count<=800),返回 ``list[dict]``。"""
+        body = self._call(_build_bars_request(category, market, code, start, count))
+        return _codec.decode_kline(body, category)
+
     # ---- 帧收发 ----
     def _call(self, pkg: bytes) -> bytes:
         sock = self._sock
@@ -151,3 +158,15 @@ def _build_count_request(market: int) -> bytes:
 def _build_list_request(market: int, start: int) -> bytes:
     """组 get_security_list 请求:固定前缀 + market(<H) + start(<H)。"""
     return bytes.fromhex("0c0118640101060006005004") + struct.pack("<HH", market, start)
+
+
+def _build_bars_request(category: int, market: int, code: str, start: int, count: int) -> bytes:
+    """组 get_security_bars 请求(命令 0x052d):固定头 + market/code/category/start/count。"""
+    raw_code = code.encode("ascii") if isinstance(code, str) else bytes(code)
+    if market not in (0, 1, 2) or len(raw_code) != 6:
+        raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
+    return struct.pack(
+        "<HIHHHH6sHHHHIIH",
+        0x10C, 0x01016408, 0x1C, 0x1C, 0x052D,
+        market, raw_code, category, 1, start, count, 0, 0, 0,
+    )

@@ -13,7 +13,7 @@ import pandas as pd
 
 from ...core import symbols
 from ...core.errors import NoData, SchemaChanged
-from ...core.models import SECURITIES_COLUMNS, TDX_QUOTE_COLUMNS
+from ...core.models import KLINE_COLUMNS, SECURITIES_COLUMNS, TDX_QUOTE_COLUMNS
 
 # 解析必需的关键字段:缺失即视为协议/字段变更(SchemaChanged)。
 # 含 bid1/ask1 —— 这是五档接口,缺盘口即说明协议层已变,不该静默返回 None。
@@ -133,3 +133,38 @@ def parse_securities(raw: list[dict[str, Any]]) -> pd.DataFrame:
     if not rows:
         raise NoData("通达信 securities 无 A 股股票(品种列表为空或全被过滤)")
     return pd.DataFrame(rows, columns=SECURITIES_COLUMNS)
+
+
+_MINUTE_FREQS = {"1m", "5m", "15m", "30m", "60m"}
+
+
+def parse_kline(raw: list[dict[str, Any]], *, symbol: str, freq: str) -> pd.DataFrame:
+    """K 线 bar(已解码)-> 含 :data:`KLINE_COLUMNS` 的 DataFrame(**原始价**,未复权)。
+
+    - 空 -> :class:`NoData`;
+    - volume 由通达信原始**股数**换算为**手**(/100,对齐东财);amount 为元;
+    - pct_chg 由收盘价相邻变化算(通达信 bar 不直接给);turnover 通达信不提供,置 NaN;
+    - 日/周/月的 date 归一到零点,分钟级保留时分。
+    """
+    if not raw:
+        raise NoData(f"通达信 kline 无数据: {symbol}")
+    rows = [
+        {
+            "symbol": symbol,
+            "date": b["datetime"],
+            "open": b["open"],
+            "high": b["high"],
+            "low": b["low"],
+            "close": b["close"],
+            "volume": b["vol"] / 100.0,   # 股 -> 手
+            "amount": b["amount"],
+        }
+        for b in raw
+    ]
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["date"])
+    if freq not in _MINUTE_FREQS:
+        df["date"] = df["date"].dt.normalize()
+    df["pct_chg"] = (df["close"].pct_change() * 100).round(4)
+    df["turnover"] = float("nan")   # 通达信 K 线不提供换手率
+    return df[KLINE_COLUMNS]

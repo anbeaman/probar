@@ -55,5 +55,16 @@ amount<I>, s_vol, b_vol, 保留×2, 五档×(bid_diff, ask_diff, bid_vol, ask_vo
 `code(6 位 ASCII)/ volunit / name(8 字节 **GBK**)/ 保留 / 小数位 / 昨收(私有压缩浮点)/ 保留`。
 体长应精确为 `2 + 29 * count`。
 
-> 已实现:`get_security_quotes`(实时五档)、`get_security_count` / `get_security_list`(证券列表)。
-> K 线 / 分时 / 逐笔 / 除权除息等命令按同一框架后续接入。
+## K 线解码(get_security_bars)
+
+**请求** —— `struct.pack("<HIHHHH6sHHHHIIH", 0x10c, 0x01016408, 0x1c, 0x1c, 0x052d, market, code,
+category, 1, start, count, 0, 0, 0)`(命令 `0x052d`)。`category` 为周期(1m=8 / 5m=0 / 15m=1 / 30m=2 /
+60m=3 / 日=4 / 周=5 / 月=6);`start` 为距最新的偏移、`count<=800`。
+
+**响应** —— 体偏移 0 的 `<H` 为 bar 数;每 bar:`datetime`(按 category:分钟级 4 字节 `<HH` 含时分,
+日及以上 4 字节 `<I` 仅日期)+ 开/收/高/低 4 个 **vint 跨 bar 差分** + vol/amount 各 `<I`(私有压缩浮点)。
+价格 `/1000`:开 = (开差 + 上一 bar 收基准)/1000,收/高/低 = (绝对开 + 各自差分)/1000,下一 bar 基准 =
+绝对开 + 收差。bar 内成交量为**股数**(上层 /100 转手)。
+
+> 已实现:`get_security_quotes`(实时五档)、`get_security_count` / `get_security_list`(证券列表)、
+> `get_security_bars`(K 线)。分时 / 逐笔 / 除权除息等命令按同一框架后续接入。

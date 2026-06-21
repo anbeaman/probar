@@ -19,7 +19,7 @@ import sys
 
 import probar as pb
 from probar.core.errors import NetworkError, RateLimited, SchemaChanged
-from probar.core.models import QUOTE_COLUMNS, SECURITIES_COLUMNS
+from probar.core.models import KLINE_COLUMNS, QUOTE_COLUMNS, SECURITIES_COLUMNS
 
 PROBES = ["600519.SH", "000001.SZ"]
 
@@ -95,6 +95,18 @@ def classify_tdx_securities() -> tuple[str, str]:
     return "ok", f"{n_uniq} 只沪深"
 
 
+def classify_tdx_kline() -> tuple[str, str]:
+    try:
+        df = pb.tdx.kline("600519.SH", freq="1d", limit=5)
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    if list(df.columns) != KLINE_COLUMNS:
+        return "schema", f"列契约变化: {list(df.columns)}"
+    if df.empty or (df["close"] <= 0).any():
+        return "data", f"收盘价异常(前8): {df['close'].tolist()[:8]}"
+    return "ok", f"{len(df)} 根,最新收盘 {df['close'].iloc[-1]}"
+
+
 def main() -> int:
     results: list[tuple[str, str, str]] = [
         (f"dc.kline {s}", *classify_kline(s)) for s in PROBES
@@ -102,6 +114,7 @@ def main() -> int:
     results.append(("dc.securities", *classify_securities()))
     results.append(("tdx.quotes", *classify_tdx_quote()))
     results.append(("tdx.securities", *classify_tdx_securities()))
+    results.append(("tdx.kline", *classify_tdx_kline()))
     hard = [r for r in results if r[1] in ("schema", "data")]
 
     for label, status, detail in results:
