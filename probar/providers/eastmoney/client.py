@@ -13,6 +13,7 @@ from typing import Any
 import pandas as pd
 
 from ...core import symbols
+from ...core.cache import TTLCache
 from ...core.errors import NoData, SchemaChanged
 from ...core.models import QUOTE_COLUMNS, ensure_columns, stamp
 from ..base import HttpProvider
@@ -26,6 +27,11 @@ def _todo(interface: str, version: str = "v0.2") -> NotImplementedError:
 
 class EastMoney(HttpProvider):
     name = "dc"
+
+    def __init__(self, *, cache_ttl: float = 3600.0, **kwargs: Any) -> None:
+        """``cache_ttl``: 慢变全量数据(如 securities)缓存秒数,默认 1h;余见 HttpProvider。"""
+        super().__init__(**kwargs)
+        self._cache: TTLCache = TTLCache(ttl=cache_ttl)
 
     # ---- 已实现:历史 K 线 ------------------------------------------------
     def kline(
@@ -70,6 +76,10 @@ class EastMoney(HttpProvider):
         }
         payload = self._http.get_json(ep.KLINE_URL, params, referer="https://quote.eastmoney.com/")
         df = parsers.parse_kline(payload, symbol=str(symbols.normalize(symbol)))
+        # 东财在 beg=0(未给 start)时会忽略 lmt、返回整段历史 -> 仅此情形兜底取最近 limit 根;
+        # 给了 start 的区间查询不截断(否则会丢掉区间早段数据)。
+        if start is None and len(df) > limit:
+            df = df.tail(limit).reset_index(drop=True)
         return stamp(df, source=self.name, freq=freq, adjust=adjust or "none")
 
     # ---- 已实现:实时快照 ------------------------------------------------
@@ -93,20 +103,36 @@ class EastMoney(HttpProvider):
         return parsers.parse_quote(payload, symbol=str(symbols.normalize(symbol)))
 
     def quotes(self, symbol_list: list[str]) -> pd.DataFrame:
-        """批量实时快照,返回 DataFrame。
+        """批量实时快照,返回 DataFrame(**一次请求多只**,免去逐只循环被限频)。
 
-        参数: symbol_list 代码列表,如 ["000001.SZ", "600519.SH"]。
+        参数: symbol_list 代码列表,如 ["000001.SZ", "600519.SH"];自动分批(每批<=100)。
         返回列: symbol, name, price(元), open, high, low, prev_close,
             volume(手), amount(元), pct_chg(%)。
-        注意: v0.1 为串行,几十只以内顺手,勿循环打几千只(等 v0.2 批量/异步)。
+        说明: 走 push2 ulist 批量端点,N 只仅发 ceil(N/100) 次请求(原先 N 次),显著降低被限频概率。
         示例:
-            >>> pb.dc.quotes(["000001.SZ", "600519.SH"])
+            >>> pb.dc.quotes(["000001.SZ", "600519.SH"])[["symbol", "name", "price", "pct_chg"]]
                   symbol  name   price  pct_chg
-            0  000001.SZ  平安银行   11.20     0.45
-            1  600519.SH  贵州茅台 1648.00    -2.11
+            0  000001.SZ  平安银行   10.52    -2.41
+            1  600519.SH  贵州茅台 1215.00    -2.02
         """
-        rows = [self.quote(s) for s in symbol_list]
-        df = pd.DataFrame(rows)
+        if not symbol_list:
+            raise ValueError("symbol_list 不能为空")
+        secids = [symbols.to_eastmoney_secid(s) for s in symbol_list]
+        frames: list[pd.DataFrame] = []
+        for i in range(0, len(secids), ep.QUOTES_MAX_PER_REQ):
+            chunk = secids[i : i + ep.QUOTES_MAX_PER_REQ]
+            params = {
+                "ut": ep.UT,
+                "fltt": 2,
+                "invt": 2,
+                "fields": ep.QUOTES_FIELDS,
+                "secids": ",".join(chunk),
+            }
+            payload = self._http.get_json(
+                ep.ULIST_URL, params, referer="https://quote.eastmoney.com/"
+            )
+            frames.append(parsers.parse_quotes_batch(payload))
+        df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
         ensure_columns(df, QUOTE_COLUMNS, source=self.name, interface="quotes")
         return stamp(df, source=self.name)
 
@@ -256,13 +282,16 @@ class EastMoney(HttpProvider):
     def concept_cons(self, board: str) -> pd.DataFrame:
         raise _todo("concept_cons", "v0.3")
 
-    def securities(self, *, page_size: int = 1000) -> pd.DataFrame:
+    def securities(self, *, page_size: int = 1000, use_cache: bool = True) -> pd.DataFrame:
         """全市场 A 股(沪深京)代码表。
 
-        参数: page_size 每页条数(默认 1000,分页拉全,受统一限流器节流)。
+        参数:
+            page_size: 每页条数(默认 1000,分页拉全,受统一限流器节流)。
+            use_cache: 是否走 TTL 缓存(默认 True;代码表慢变,缓存秒数见 cache_ttl)。
         返回列: symbol(规范化,如 600519.SH), code(原始6位), name,
             market(SH/SZ/BJ), asset_type(首版固定 "stock")。market 由代码前缀推断。
-        说明: 首版只含 A 股;ETF/可转债/指数留待后续小版本。
+        说明: 首版只含 A 股;ETF/可转债/指数留待后续小版本。分页拉全后**整表缓存**,
+            重复调用直接命中(返回副本,改它不影响缓存),避免反复分页被限频。
         示例:
             >>> df = pb.dc.securities()
             >>> df.shape[1], list(df.columns)
@@ -271,6 +300,10 @@ class EastMoney(HttpProvider):
             [{'symbol': '000001.SZ', 'code': '000001', 'name': '平安银行',
               'market': 'SZ', 'asset_type': 'stock'}]
         """
+        if use_cache:
+            cached = self._cache.get("securities")
+            if cached is not None:
+                return cached.copy(deep=True)  # 防用户原地改写污染缓存
         frames: list[pd.DataFrame] = []
         seen: set[str] = set()
         total: int | None = None
@@ -309,7 +342,14 @@ class EastMoney(HttpProvider):
             if total and total > 0:
                 raise SchemaChanged(f"东财 securities total={total} 但未取到任何数据")
             raise NoData("东财 securities 无数据")
-        return stamp(pd.concat(frames, ignore_index=True), source=self.name, total=total)
+        if total and len(seen) < total:  # 100 页上限耗尽仍未拉满 -> 不返回/缓存残表
+            raise SchemaChanged(
+                f"东财 securities 未拉满: 取到 {len(seen)}/{total}(page_size={page_size} 可能偏小)"
+            )
+        result = stamp(pd.concat(frames, ignore_index=True), source=self.name, total=total)
+        if use_cache:
+            self._cache.set("securities", result.copy(deep=True))  # 存副本;异常已提前 raise,不缓存
+        return result
 
     def xdxr(self, symbol: str) -> pd.DataFrame:
         raise _todo("xdxr", "v0.3")

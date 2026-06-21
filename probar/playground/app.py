@@ -42,7 +42,7 @@ EXAMPLES: dict[str, dict] = {
     },
     "dc.quotes": {
         "params": {"symbol_list": "000001.SZ,600519.SH"},
-        "note": "批量返回 DataFrame;v0.1 为串行,几十只以内顺手,勿循环打几千只。",
+        "note": "批量返回 DataFrame;走 push2 ulist 批量端点,一次请求多只(每批<=100),省去逐只循环。",
     },
     "dc.kline": {
         "params": {"symbol": "600519.SH", "freq": "1d", "adjust": "qfq", "start": "2024-01-01"},

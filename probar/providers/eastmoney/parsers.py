@@ -12,7 +12,7 @@ import pandas as pd
 
 from ...core import symbols
 from ...core.errors import NoData, SchemaChanged
-from ...core.models import KLINE_COLUMNS, SECURITIES_COLUMNS
+from ...core.models import KLINE_COLUMNS, QUOTE_COLUMNS, SECURITIES_COLUMNS
 from . import endpoints as ep
 from .endpoints import KLINE_FIELDS
 
@@ -88,6 +88,55 @@ def parse_quote(payload: dict[str, Any], *, symbol: str) -> dict[str, Any]:
         "amount": data.get("f48"),
         "pct_chg": (data.get("f170") / 100 if isinstance(data.get("f170"), (int, float)) else None),
     }
+
+
+def parse_quotes_batch(payload: dict[str, Any]) -> pd.DataFrame:
+    """解析 ulist 批量实时快照(fltt=2,字段已是浮点)-> 含 :data:`QUOTE_COLUMNS` 的 DataFrame。
+
+    字段:f2 现价 / f17 开 / f15 高 / f16 低 / f18 昨收 / f5 量(手)/ f6 额(元)/ f3 涨跌幅(%)。
+    data 为 None -> NoData;缺 diff -> SchemaChanged;f12 非数字 -> SchemaChanged。
+    """
+    data = payload.get("data")
+    if data is None:
+        raise NoData("东财 quotes 无数据")
+    diff = data.get("diff")
+    if diff is None:
+        raise SchemaChanged(f"东财 quotes 响应缺少 'diff' 字段: keys={list(data)}")
+    items = list(diff.values()) if isinstance(diff, dict) else diff
+    if not items:
+        raise NoData("东财 quotes 无数据(请求的代码均无返回)")
+
+    def _num(v: Any) -> float | None:
+        if v is None or v == "-":
+            return None
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    rows = []
+    for r in items:
+        if not isinstance(r, dict):
+            raise SchemaChanged(f"东财 quotes diff 元素非对象: {r!r}")
+        code = r.get("f12")
+        if not code or not str(code).isdigit():
+            raise SchemaChanged(f"东财 quotes 行 f12(代码)非法: {r}")
+        sym = symbols.normalize(str(code))
+        rows.append(
+            {
+                "symbol": sym.ts_code,
+                "name": r.get("f14"),
+                "price": _num(r.get("f2")),
+                "open": _num(r.get("f17")),
+                "high": _num(r.get("f15")),
+                "low": _num(r.get("f16")),
+                "prev_close": _num(r.get("f18")),
+                "volume": _num(r.get("f5")),
+                "amount": _num(r.get("f6")),
+                "pct_chg": _num(r.get("f3")),
+            }
+        )
+    return pd.DataFrame(rows, columns=QUOTE_COLUMNS)
 
 
 def _klines_to_df(

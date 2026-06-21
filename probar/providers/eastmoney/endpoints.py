@@ -44,8 +44,15 @@ KLINE_FIELDS = [
 KLINE_FIELDS2 = "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
 KLINE_FIELDS1 = "f1,f2,f3,f4,f5,f6"
 
-# 实时快照所需字段
+# 实时快照所需字段(单只 stock/get)
 QUOTE_FIELDS = "f43,f44,f45,f46,f47,f48,f57,f58,f60,f169,f170,f59"
+
+# ---- 批量实时快照(ulist.np;一次多只,fltt=2 直接返回浮点、免缩放)----
+ULIST_URL = "https://push2.eastmoney.com/api/qt/ulist.np/get"
+# f12=代码 f13=市场 f14=名称 f2=现价 f3=涨跌幅 f5=成交量(手) f6=成交额(元)
+# f15=最高 f16=最低 f17=开盘 f18=昨收
+QUOTES_FIELDS = "f12,f13,f14,f2,f3,f5,f6,f15,f16,f17,f18"
+QUOTES_MAX_PER_REQ = 100  # 单请求 secid 数上限(保守分批)
 
 # ---- 资金流(个股历史 daykline)----
 FFLOW_URL = "https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get"

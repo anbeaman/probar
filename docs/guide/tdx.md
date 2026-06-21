@@ -6,7 +6,7 @@
 底层经 `TdxTransport` + **自写协议客户端**(clean-room,纯标准库 `socket`/`struct`/`zlib`,**零第三方依赖**,
 开箱即用):**服务器池 + 业务探针**(连上后真拉固定标的校验五档,而非仅 ping),失败自动降级换服务器。
 
-## `quotes` / `quote` —— 批量实时五档(v0.3,已实现)
+## `quotes` / `quote` —— 批量实时五档(已实现)
 
 `quotes(symbol_list)` 批量、`quote(symbol)` 单只。这是通达信相对东财的强项:一次请求多只、含 L1 五档盘口。
 

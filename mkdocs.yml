@@ -30,9 +30,10 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.inlinehilite
 
-# 维护者宪章含仓库相对链接,不进文档站构建
+# 维护者文档含仓库相对链接,不进文档站构建
 exclude_docs: |
   ENGINEERING_GUIDE.md
+  PROJECT_PLAN.md
 
 nav:
   - 首页: index.md

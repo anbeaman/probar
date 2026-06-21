@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "anbeaman" }]
 keywords = ["quant", "stock", "a-share", "eastmoney", "tdx", "tonghuashun", "行情", "量化"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.10",
@@ -47,6 +47,18 @@ path = "probar/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["probar"]
+
+# 源码分发(sdist)用白名单收口:只打包发布必需文件,本地开发/工具/文档不入包
+#(默认 sdist 会含整个工作区,故显式列出允许项)。
+[tool.hatch.build.targets.sdist]
+include = [
+    "/probar",
+    "/tests",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
 
 [tool.ruff]
 line-length = 100

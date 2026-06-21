@@ -19,7 +19,7 @@ import probar as pb
 
 # 实时快照(单只 dict / 批量 DataFrame)
 one = pb.dc.quote("000001.SZ")
-many = pb.dc.quote(["000001.SZ", "600519.SH"])   # 也可用 pb.dc.quotes([...])
+many = pb.dc.quotes(["000001.SZ", "600519.SH"])  # 批量:一次请求多只
 
 # 历史 K 线(默认前复权)
 df = pb.dc.kline("600519.SH", freq="1d", adjust="qfq", start="2024-01-01")

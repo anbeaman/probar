@@ -40,7 +40,7 @@ def classify_kline(symbol: str) -> tuple[str, str]:
     except Exception as e:  # noqa: BLE001
         return _classify_exc(e)
     if df.empty or (df["close"] <= 0).any():
-        return "data", f"{symbol} 收盘价异常: {df['close'].tolist()}"
+        return "data", f"{symbol} 收盘价异常(前8): {df['close'].tolist()[:8]}(共{len(df)}行)"
     return "ok", f"{symbol} {len(df)} 行,最新收盘 {df['close'].iloc[-1]}"
 
 

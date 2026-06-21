@@ -2,7 +2,7 @@
 
 完整记录见仓库 [`CHANGELOG.md`](https://github.com/anbeaman/probar/blob/main/CHANGELOG.md)。
 
-## Unreleased
+## 0.1.0 (2026-06-21)
 
 - 按数据源拆分命名空间 `pb.dc / pb.tdx / pb.ths`(各源数据独立、不互相替换);每个只暴露该源真实支持的接口。
 - 东方财富(`pb.dc`)已实现:`quote / quotes / kline / intraday / fund_flow / lhb / financials / securities`。

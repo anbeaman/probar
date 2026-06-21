@@ -4,7 +4,7 @@
 :class:`~probar.providers.tdx.transport.TdxTransport` + 自写协议客户端(clean-room,纯标准库
 socket/struct/zlib,**零第三方依赖**)+ 服务器池业务探针。
 
-v0.3 已实现:``quotes`` / ``quote``(批量实时五档,**标杆**,全链路:服务器池 -> 协议 ->
+已实现:``quotes`` / ``quote``(批量实时五档,全链路:服务器池 -> 协议 ->
 解析 -> 归一)。其余接口已在命名空间中声明(诚实反映能力矩阵),按路线图分批落地,未实现者
 抛 :class:`NotImplementedError` 并注明计划版本。
 

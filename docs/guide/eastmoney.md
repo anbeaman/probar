@@ -4,7 +4,8 @@
 表格返回 `pandas.DataFrame`,`df.attrs` 带来源等溯源信息。
 
 !!! note "通用注意事项"
-    - 非官方接口,已内置限流;**请勿高频轮询**,以免被目标站点限频(`RateLimited`)。
+    - 非官方接口,已内置限流(默认 10 req/s)。该限流是 probar 的**友好访问保护,不是数据源的官方配额/SLA**;
+      批量历史 / 财务 / 龙虎榜建议放慢到 **1–3 req/s**,**请勿高频轮询**,以免被限频(`RateLimited`)。
     - 金额单位为**元**,成交量为**手**(1 手 = 100 股),涨跌幅/换手/占比为**百分数**(如 `-2.11` 表示 -2.11%)。
     - 合法但无数据 → 抛 `NoData`;上游字段变更 → 抛 `SchemaChanged`(见 [错误模型](../reference/errors.md))。
 
@@ -14,7 +15,7 @@
 
 ```python
 pb.dc.quote(symbol)            # 单只 -> dict
-pb.dc.quote([s1, s2, ...])     # 多只 -> 见 quotes
+pb.dc.quotes([s1, s2, ...])    # 多只 -> DataFrame(见 quotes)
 ```
 
 - **参数**:`symbol` 单只代码。
@@ -42,14 +43,15 @@ pb.dc.quotes(symbol_list)      # -> DataFrame
 - **返回列**:`symbol, name, price, open, high, low, prev_close, volume, amount, pct_chg`。
 
 ```python
->>> pb.dc.quotes(["000001.SZ", "600519.SH"])
+>>> pb.dc.quotes(["000001.SZ", "600519.SH"])[["symbol", "name", "price", "pct_chg"]]
       symbol  name   price  pct_chg
-0  000001.SZ  平安银行   11.20     0.45
-1  600519.SH  贵州茅台 1648.00    -2.11
+0  000001.SZ  平安银行   10.52    -2.41
+1  600519.SH  贵州茅台 1215.00    -2.02
 ```
 
-!!! warning "注意"
-    v0.1 为**串行**实现,几十只以内顺手;全市场批量请等 v0.2 的批量/异步接口,不要拿它循环打几千只。
+!!! tip "批量端点(抗限频)"
+    走 push2 `ulist` **批量端点**,一次请求多只、自动分批(每批 ≤ 100):N 只仅发 ⌈N/100⌉ 次请求,
+    远少于逐只循环,**显著降低被限频概率**。取全市场快照可先用 `securities()` 拿代码,再分批 `quotes()`。
 
 ---
 
@@ -179,7 +181,8 @@ pb.dc.securities(page_size=1000)   # -> DataFrame
 
 !!! warning "注意"
     - 首版**只含沪深京 A 股**(不含 ETF / 可转债 / 指数,留待后续小版本)。
-    - 全市场约 5800+ 只,分页拉全(受内置限流节流);请勿盘中高频调用。
+    - 全市场约 5800+ 只,分页拉全后**整表缓存**(默认 1h,`EastMoney(cache_ttl=)` 可调):
+      重复调用直接命中、不再分页,免反复被限频;传 `use_cache=False` 可强制刷新。
 
 ---
 
