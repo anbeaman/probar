@@ -79,6 +79,11 @@ class TdxClient:
         body = self._call(_build_bars_request(category, market, code, start, count))
         return _codec.decode_kline(body, category)
 
+    def get_xdxr_info(self, market: int, code: str) -> list[dict[str, Any]]:
+        """拉除权除息信息(全历史事件),返回 ``list[dict]``。"""
+        body = self._call(_build_xdxr_request(market, code))
+        return _codec.decode_xdxr(body)
+
     # ---- 帧收发 ----
     def _call(self, pkg: bytes) -> bytes:
         sock = self._sock
@@ -170,3 +175,11 @@ def _build_bars_request(category: int, market: int, code: str, start: int, count
         0x10C, 0x01016408, 0x1C, 0x1C, 0x052D,
         market, raw_code, category, 1, start, count, 0, 0, 0,
     )
+
+
+def _build_xdxr_request(market: int, code: str) -> bytes:
+    """组 get_xdxr_info 请求:固定前缀 + `<B6s (market, code)`。"""
+    raw_code = code.encode("ascii") if isinstance(code, str) else bytes(code)
+    if market not in (0, 1, 2) or len(raw_code) != 6:
+        raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
+    return bytes.fromhex("0c1f187600010b000b000f000100") + struct.pack("<B6s", market, raw_code)

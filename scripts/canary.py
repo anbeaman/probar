@@ -107,6 +107,19 @@ def classify_tdx_kline() -> tuple[str, str]:
     return "ok", f"{len(df)} 根,最新收盘 {df['close'].iloc[-1]}"
 
 
+def classify_tdx_xdxr() -> tuple[str, str]:
+    try:
+        df = pb.tdx.xdxr("600519.SH")
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    if "fenhong" not in df.columns or "category" not in df.columns:
+        return "schema", f"列缺失: {list(df.columns)}"
+    cat1 = df[df["category"] == 1]
+    if cat1.empty:
+        return "data", "无除权除息事件(茅台应有分红)"
+    return "ok", f"{len(df)} 事件,{len(cat1)} 除权除息"
+
+
 def main() -> int:
     results: list[tuple[str, str, str]] = [
         (f"dc.kline {s}", *classify_kline(s)) for s in PROBES
@@ -115,6 +128,7 @@ def main() -> int:
     results.append(("tdx.quotes", *classify_tdx_quote()))
     results.append(("tdx.securities", *classify_tdx_securities()))
     results.append(("tdx.kline", *classify_tdx_kline()))
+    results.append(("tdx.xdxr", *classify_tdx_xdxr()))
     hard = [r for r in results if r[1] in ("schema", "data")]
 
     for label, status, detail in results:

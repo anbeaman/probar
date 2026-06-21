@@ -209,7 +209,19 @@ class Tdx:
 
     # ---- 参考/元数据:待实现 ----
     def xdxr(self, symbol: str) -> pd.DataFrame:
-        raise _todo("xdxr")
+        """除权除息事件(全历史),返回 DataFrame。
+
+        参数: symbol 证券代码。
+        返回列: symbol, date, category(类别码), name(类别名), fenhong(分红 元/10股),
+            songzhuangu(送转股 股/10股), peigu(配股 股/10股), peigujia(配股价 元), suogu(缩股比)。
+        说明: 仅 category=1(除权除息)填分红/送转/配股;无任何事件返回固定列空表。复权接入见路线图。
+        示例:
+            >>> pb.tdx.xdxr("600519.SH")[["date", "name", "fenhong", "songzhuangu"]].tail(1)
+        """
+        market, code = symbols.to_tdx(symbol)
+        raw = self._t().get_xdxr_info(market, code)
+        df = parsers.parse_xdxr(raw, symbol=str(symbols.normalize(symbol)))
+        return stamp(df, source=self.name)
 
     def securities(self, *, use_cache: bool = True) -> pd.DataFrame:
         """**沪深** A 股代码表,返回 DataFrame(从通达信全品种列表筛出股票)。

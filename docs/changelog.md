@@ -2,6 +2,10 @@
 
 完整记录见仓库 [`CHANGELOG.md`](https://github.com/anbeaman/probar/blob/main/CHANGELOG.md)。
 
+## 0.4.0 (2026-06-21)
+
+- 通达信 `pb.tdx.xdxr`:除权除息事件(clean-room 自写 `get_xdxr_info`,与参考实现逐值零不符)。复权基石(qfq/hfq 接入 kline 见路线图)。
+
 ## 0.3.0 (2026-06-21)
 
 - 通达信 `pb.tdx.kline`:历史 K 线(原始价,clean-room 自写 `get_security_bars`;支持 1m~月线、start/end/limit)。复权需 xdxr(暂 `NotSupported`)。

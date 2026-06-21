@@ -66,5 +66,14 @@ category, 1, start, count, 0, 0, 0)`(命令 `0x052d`)。`category` 为周期(1m=
 价格 `/1000`:开 = (开差 + 上一 bar 收基准)/1000,收/高/低 = (绝对开 + 各自差分)/1000,下一 bar 基准 =
 绝对开 + 收差。bar 内成交量为**股数**(上层 /100 转手)。
 
+## 除权除息解码(get_xdxr_info)
+
+**请求** —— 固定前缀 `0c1f187600010b000b000f000100` + `<B6s (market, code)`。
+
+**响应** —— skip 9 字节后 `<H` 为事件数;每事件 29 字节:market/code/保留(8,跳过)+ 日期(4,日级 `<I`)+
+`<B category` + 16 字节类别数据。**category=1 除权除息** = `<ffff`(fenhong 分红 / peigujia 配股价 /
+songzhuangu 送转股 / peigu 配股,均每 10 股口径);category 11/12 缩股 = `<IIfI` 取第 3 个 float(suogu)。
+体长应精确为 `11 + 29 * count`。
+
 > 已实现:`get_security_quotes`(实时五档)、`get_security_count` / `get_security_list`(证券列表)、
-> `get_security_bars`(K 线)。分时 / 逐笔 / 除权除息等命令按同一框架后续接入。
+> `get_security_bars`(K 线)、`get_xdxr_info`(除权除息)。分时 / 逐笔等命令按同一框架后续接入。

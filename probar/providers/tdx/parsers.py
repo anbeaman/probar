@@ -168,3 +168,22 @@ def parse_kline(raw: list[dict[str, Any]], *, symbol: str, freq: str) -> pd.Data
     df["pct_chg"] = (df["close"].pct_change() * 100).round(4)
     df["turnover"] = float("nan")   # 通达信 K 线不提供换手率
     return df[KLINE_COLUMNS]
+
+
+_XDXR_COLUMNS = [
+    "symbol", "date", "category", "name", "fenhong", "songzhuangu", "peigu", "peigujia", "suogu",
+]
+
+
+def parse_xdxr(raw: list[dict[str, Any]], *, symbol: str) -> pd.DataFrame:
+    """除权除息事件(已解码)-> DataFrame。**无任何事件是合法空集 -> 固定列空表**(非 NoData)。
+
+    fenhong 分红(元/10股)、songzhuangu 送转股(股/10股)、peigu 配股(股/10股)、
+    peigujia 配股价(元/股)仅 category=1 填充;suogu 缩股比例(category 11/12)。用于复权。
+    """
+    if not raw:
+        return pd.DataFrame(columns=_XDXR_COLUMNS)   # 新股/不分红股无事件,合法空集
+    df = pd.DataFrame(raw)
+    df.insert(0, "symbol", symbol)
+    df["date"] = pd.to_datetime(df["date"])
+    return df.reindex(columns=_XDXR_COLUMNS)

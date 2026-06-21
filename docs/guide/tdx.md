@@ -81,6 +81,17 @@ df = pb.tdx.kline("000001.SZ", freq="5m", start="2026-06-01")  # 区间分钟线
 - **注意**:通达信 K 线是**原始价**(未复权);`turnover` 恒为 `NaN`(协议不提供换手率),`pct_chg` 由收盘价自算。
   分钟历史比东财更深,是通达信的强项。
 
+## `xdxr` —— 除权除息事件(v0.4,已实现)
+
+```python
+df = pb.tdx.xdxr("600519.SH")        # -> DataFrame,全历史除权除息等事件
+```
+
+- **返回列**:`symbol, date, category(类别码), name(类别名), fenhong(分红 元/10股),
+  songzhuangu(送转股 股/10股), peigu(配股 股/10股), peigujia(配股价 元/股), suogu(缩股比例)`。
+- 仅 `category=1`(除权除息)填分红/送转/配股;无任何事件返回固定列空表。
+- **复权基石**:用于自算前/后复权(qfq/hfq 接入 `kline` 见路线图)。
+
 ## 路线图(其余接口)
 
 命名空间已声明完整接口面,未实现者调用抛 `NotImplementedError` 并注明计划版本:
@@ -92,7 +103,7 @@ df = pb.tdx.kline("000001.SZ", freq="5m", start="2026-06-01")  # 区间分钟线
 | `kline` | ✅ v0.3 | 历史 K 线(原始价;复权需 xdxr) |
 | `intraday` / `intraday_hist` | 规划 | 当日 / 历史分时 |
 | `ticks` / `ticks_hist` | 规划 | 当日 / 历史逐笔(分笔成交明细,**非** L2 逐笔委托) |
-| `xdxr` | 规划 | 除权除息(用于复权) |
+| `xdxr` | ✅ v0.4 | 除权除息事件(复权基石) |
 | `block` | 规划 | 本地板块 |
 | `finance_info` | 规划 | 基础财务 |
 

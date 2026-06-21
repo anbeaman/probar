@@ -261,3 +261,47 @@ def decode_kline(body: bytes, category: int) -> list[dict[str, Any]]:
     if pos != len(body):
         raise SchemaChanged(f"通达信 kline 响应长度不符: pos {pos} != 实际 {len(body)}")
     return out
+
+
+_XDXR_NAME = {
+    1: "除权除息", 2: "送配股上市", 3: "非流通股上市", 4: "未知股本变动", 5: "股本变化",
+    6: "增发新股", 7: "股份回购", 8: "增发新股上市", 9: "转配股上市", 10: "可转债上市",
+    11: "扩缩股", 12: "非流通股缩股", 13: "送认购权证", 14: "送认沽权证",
+}
+
+
+def decode_xdxr(body: bytes) -> list[dict[str, Any]]:
+    """解码 get_xdxr_info 响应 -> 除权除息等事件 ``list[dict]``。
+
+    skip 9 字节后 `<H` 为条数;每条 29 字节:market/code/保留(8,跳过)+ 日期(4,日级)+
+    category(1)+ 16 字节类别数据。category=1 除权除息 = `<ffff`(分红/配股价/送转股/配股,每 10 股);
+    category 11/12 缩股取 suogu;其余类别仅推进位置、复权相关字段置 None。
+    """
+    try:
+        (count,) = struct.unpack_from("<H", body, 9)   # 合法 0 事件也应是 11 字节(count=0)
+        pos = 11
+        out: list[dict[str, Any]] = []
+        for _ in range(count):
+            pos += 8   # market(B)+code(6s)+保留(1):恒为查询股票,跳过
+            year, month, day, _, _, pos = _kline_datetime(9, body, pos)   # 日级日期
+            (category,) = struct.unpack_from("<B", body, pos)
+            pos += 1
+            row: dict[str, Any] = {
+                "date": f"{year:04d}-{month:02d}-{day:02d}",
+                "category": category,
+                "name": _XDXR_NAME.get(category, str(category)),
+                "fenhong": None, "songzhuangu": None, "peigu": None,
+                "peigujia": None, "suogu": None,
+            }
+            if category == 1:
+                fenhong, peigujia, songzhuangu, peigu = struct.unpack_from("<ffff", body, pos)
+                row.update(fenhong=fenhong, peigujia=peigujia, songzhuangu=songzhuangu, peigu=peigu)
+            elif category in (11, 12):
+                row["suogu"] = struct.unpack_from("<IIfI", body, pos)[2]
+            pos += 16
+            out.append(row)
+    except (struct.error, IndexError) as e:
+        raise SchemaChanged(f"通达信 xdxr 响应不符合预期协议布局: {e}") from e
+    if pos != len(body):
+        raise SchemaChanged(f"通达信 xdxr 响应长度不符: pos {pos} != 实际 {len(body)}")
+    return out

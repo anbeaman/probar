@@ -2,6 +2,12 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.4.0] - 2026-06-21
+
+### Added
+
+- 通达信 `pb.tdx.xdxr`:除权除息事件(clean-room 自写 `get_xdxr_info`;与参考实现逐值零不符)。返回 date/category/name/fenhong(分红 元/10股)/songzhuangu/peigu/peigujia/suogu;为前/后复权计算的基石(qfq/hfq 接入 kline 见路线图)。
+
 ## [0.3.0] - 2026-06-21
 
 ### Added
@@ -42,6 +48,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[0.4.0]: https://github.com/anbeaman/probar/releases/tag/v0.4.0
 [0.3.0]: https://github.com/anbeaman/probar/releases/tag/v0.3.0
 [0.2.0]: https://github.com/anbeaman/probar/releases/tag/v0.2.0
 [0.1.0]: https://github.com/anbeaman/probar/releases/tag/v0.1.0
