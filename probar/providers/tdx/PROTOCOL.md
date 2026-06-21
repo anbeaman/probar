@@ -93,6 +93,16 @@ songzhuangu 送转股 / peigu 配股,均每 10 股口径);category 11/12 缩股 
 **响应** —— 与当日逐笔**布局不同**:`<H` 笔数后**另跳 4 字节保留**(`pos` 从 6 起),每笔 `<H` 分钟戳 +
 **4 个 vint**(价差跨笔累加 `/100`、vol、buyorsell、保留)——**无 `num` 字段**。同样要求 `pos == len(body)`。
 
+## 财务快照解码(get_finance_info)
+
+**请求** —— 固定前缀 `0c1f187600010b000b00 10000100`(命令 `0x0010`)+ `<B6s (market, code)`。
+
+**响应** —— `<H` 计数后 `<B6s`(market/code)+ **定长 136 字节** `<fHHIIf×30`:`liutongguben`(流通股本,
+万股)、省份 / 行业(`<H`,内部编码)、财务更新日 / 上市日(`<I` YYYYMMDD)、`zongguben`(总股本)、
+各类股 / 资产 / 负债 / 营收 / 利润(`<f`,均万元口径)、股东人数、每股净资产等。体长须精确为
+`9 + 136`。**注意**:本接口的资产 / 营收 / 利润字段口径混乱(常与公告差约 10 倍),probar 只外泄经核验
+可靠的股本 / 股东人数 / 每股净资产 / 日期,金额报表交 `pb.dc.financials`。
+
 > 已实现:`get_security_quotes`(实时五档)、`get_security_count` / `get_security_list`(证券列表)、
 > `get_security_bars`(K 线)、`get_xdxr_info`(除权除息)、`get_transaction_data`(当日逐笔)、
-> `get_history_transaction_data`(历史逐笔)。分时等命令按同一框架后续接入。
+> `get_history_transaction_data`(历史逐笔)、`get_finance_info`(财务快照)。其余命令按同一框架后续接入。

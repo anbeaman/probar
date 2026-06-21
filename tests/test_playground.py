@@ -40,13 +40,25 @@ def test_interfaces_catalog():
 
 
 def test_call_stub_returns_error_cleanly():
+    # tdx.block 仍是 stub(NotImplementedError,无参数);测试台应清晰回显异常类型
+    r = client.post(
+        "/api/call",
+        json={"namespace": "tdx", "method": "block", "params": {}},
+    )
+    j = r.json()
+    assert j["ok"] is False
+    assert j["error"]["type"] == "NotImplementedError"
+
+
+def test_call_not_supported_returns_error_cleanly():
+    # tdx.intraday 有意不提供 -> NotSupported,测试台清晰回显(指向 kline 1m)
     r = client.post(
         "/api/call",
         json={"namespace": "tdx", "method": "intraday", "params": {"symbol": "000001.SZ"}},
     )
     j = r.json()
     assert j["ok"] is False
-    assert j["error"]["type"] == "NotImplementedError"
+    assert j["error"]["type"] == "NotSupported"
 
 
 def test_call_invalid_symbol_is_clean_error():

@@ -202,10 +202,21 @@ class Tdx:
         return stamp(df.reset_index(drop=True), source=self.name, freq=freq, adjust=adj)
 
     def intraday(self, symbol: str) -> pd.DataFrame:
-        raise _todo("intraday")
+        """**有意不提供**:通达信分时仅 price+vol,已被 `kline(freq="1m")`(含 OHLC+量额)完全覆盖。
+
+        分时需求请用 `pb.tdx.kline(symbol, freq="1m")`,或要均价线用 `pb.dc.intraday`(各源独立)。
+        """
+        raise NotSupported(
+            "pb.tdx.intraday 有意不提供:通达信分时仅 price+vol,"
+            "请用 pb.tdx.kline(freq='1m')(含 OHLC+量额)或 pb.dc.intraday(含均价)"
+        )
 
     def intraday_hist(self, symbol: str, *, date: str) -> pd.DataFrame:
-        raise _todo("intraday_hist")
+        """**有意不提供**:同 :meth:`intraday`;历史分时用 `pb.tdx.kline(freq="1m", …)`。"""
+        raise NotSupported(
+            "pb.tdx.intraday_hist 有意不提供:请用 "
+            "pb.tdx.kline(freq='1m', start=…, end=…) 或 pb.dc.intraday_hist"
+        )
 
     def ticks(self, symbol: str, *, limit: int = 2000) -> pd.DataFrame:
         """当日逐笔成交,返回 DataFrame。
@@ -331,5 +342,20 @@ class Tdx:
     def block(self) -> pd.DataFrame:
         raise _todo("block")
 
-    def finance_info(self, symbol: str) -> dict:
-        raise _todo("finance_info")
+    def finance_info(self, symbol: str) -> dict[str, Any]:
+        """财务快照(股本结构 + 基本面常用字段),返回 dict。
+
+        参数: symbol 证券代码,如 "600519.SH"。
+        返回 dict: symbol, float_shares(流通股本,股), total_shares(总股本,股),
+            holders(股东人数), bvps(每股净资产,元/股), ipo_date(上市日), report_date(财务更新日)。
+        说明: 通达信财务快照,**截至 report_date(非实时)**;份额单位股。
+            **只外泄经核验可靠的字段**——通达信本接口的总资产/净资产/营收/利润等金额字段口径混乱
+            (常与公告差约 10 倍),刻意不外泄;季度报表(EPS/营收等)请用 pb.dc.financials(各源独立)。
+            无效/退市代码抛 NoData。
+        示例:
+            >>> pb.tdx.finance_info("600519.SH")["total_shares"]
+        """
+        market, code = symbols.to_tdx(symbol)
+        raw = self._t().get_finance_info(market, code)
+        info = parsers.parse_finance_info(raw, symbol=str(symbols.normalize(symbol)))
+        return {k: _native(v) for k, v in info.items()}

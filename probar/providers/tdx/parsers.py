@@ -254,3 +254,10 @@ def parse_ticks_hist(raw: list[dict[str, Any]], *, symbol: str, date: str) -> pd
     df.insert(0, "date", date)
     df.insert(0, "symbol", symbol)
     return df.reindex(columns=_TICKS_HIST_COLUMNS)
+
+
+def parse_finance_info(raw: dict[str, Any], *, symbol: str) -> dict[str, Any]:
+    """财务快照(已解码)-> dict(前置 symbol)。总股本 <=0(无效/退市/无数据)-> :class:`NoData`。"""
+    if not raw or (raw.get("total_shares") or 0) <= 0:
+        raise NoData(f"通达信 finance_info 无数据: {symbol}")
+    return {"symbol": symbol, **raw}

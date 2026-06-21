@@ -34,7 +34,9 @@ def test_ths_flagship():
 def test_unimplemented_raise_not_implemented():
     import pytest
 
+    from probar.core.errors import NotSupported
+
+    with pytest.raises(NotSupported):
+        pb.tdx.intraday("000001.SZ")   # 有意不提供(分时被 kline 1m 覆盖)
     with pytest.raises(NotImplementedError):
-        pb.tdx.intraday("000001.SZ")   # 仍是 stub(kline 已实现)
-    with pytest.raises(NotImplementedError):
-        pb.ths.wencai("涨停")
+        pb.ths.wencai("涨停")          # 仍是 stub

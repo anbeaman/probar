@@ -2,6 +2,16 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.8.0] - 2026-06-21
+
+### Added
+
+- 通达信 `pb.tdx.finance_info`:财务快照(clean-room 自写 `get_finance_info` 协议命令 `0x0010`),返回 dict。**只外泄经实盘核验可靠的字段**:`float_shares`(流通股本,股)、`total_shares`(总股本,股)、`holders`(股东人数)、`bvps`(每股净资产,元/股)、`ipo_date`(上市日)、`report_date`(财务更新日)。通达信本接口的总资产/净资产/营收/利润等金额字段口径混乱(实测常与公告差约 10 倍),**刻意不外泄**——季度报表请用 `pb.dc.financials`(各源独立)。600519 + 000001 全部可靠字段与参考实现逐字段零不符。
+
+### Changed
+
+- 通达信 `pb.tdx.intraday` / `intraday_hist` 明确为**有意不提供**(调用抛 `NotSupported` 并指向替代):通达信分时仅 price+vol,已被 `kline(freq="1m")`(含 OHLC+量额)完全覆盖;要均价线用 `pb.dc.intraday`。此前为"计划实现"占位。
+
 ## [0.7.0] - 2026-06-21
 
 ### Added
@@ -70,6 +80,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[0.8.0]: https://github.com/anbeaman/probar/releases/tag/v0.8.0
 [0.7.0]: https://github.com/anbeaman/probar/releases/tag/v0.7.0
 [0.6.0]: https://github.com/anbeaman/probar/releases/tag/v0.6.0
 [0.5.0]: https://github.com/anbeaman/probar/releases/tag/v0.5.0

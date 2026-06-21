@@ -157,6 +157,19 @@ def classify_tdx_ticks_hist() -> tuple[str, str]:
     return "ok", f"{len(df)} 笔 @ {df['date'].iloc[0]}"
 
 
+def classify_tdx_finance_info() -> tuple[str, str]:
+    try:
+        d = pb.tdx.finance_info("600519.SH")
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    need = {"symbol", "total_shares", "bvps", "ipo_date"}
+    if not need <= set(d):
+        return "schema", f"缺字段: 实得 {sorted(d)[:8]}"
+    if not (d["total_shares"] > 0 and d["bvps"] > 0):
+        return "data", f"股本/每股净资产异常: shares={d['total_shares']} bvps={d['bvps']}"
+    return "ok", f"总股本 {d['total_shares']:.0f}, bvps {d['bvps']}, ipo {d['ipo_date']}"
+
+
 def main() -> int:
     results: list[tuple[str, str, str]] = [
         (f"dc.kline {s}", *classify_kline(s)) for s in PROBES
@@ -168,6 +181,7 @@ def main() -> int:
     results.append(("tdx.xdxr", *classify_tdx_xdxr()))
     results.append(("tdx.ticks", *classify_tdx_ticks()))
     results.append(("tdx.ticks_hist", *classify_tdx_ticks_hist()))
+    results.append(("tdx.finance_info", *classify_tdx_finance_info()))
     hard = [r for r in results if r[1] in ("schema", "data")]
 
     for label, status, detail in results:

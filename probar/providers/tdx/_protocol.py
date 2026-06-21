@@ -98,6 +98,11 @@ class TdxClient:
         body = self._call(_build_ticks_hist_request(market, code, date, start, count))
         return _codec.decode_ticks_hist(body)
 
+    def get_finance_info(self, market: int, code: str) -> dict[str, Any]:
+        """拉财务快照(股本结构 + 基本面;单只),返回 ``dict``。"""
+        body = self._call(_build_finance_info_request(market, code))
+        return _codec.decode_finance_info(body)
+
     # ---- 帧收发 ----
     def _call(self, pkg: bytes) -> bytes:
         sock = self._sock
@@ -218,4 +223,14 @@ def _build_ticks_hist_request(
         raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
     return bytes.fromhex("0c013001000112001200b50f") + struct.pack(
         "<IH6sHH", date, market, raw_code, start, count
+    )
+
+
+def _build_finance_info_request(market: int, code: str) -> bytes:
+    """组 get_finance_info 请求(命令 0x0010):固定前缀 + `<B6s`(market, code)。"""
+    raw_code = code.encode("ascii") if isinstance(code, str) else bytes(code)
+    if market not in (0, 1, 2) or len(raw_code) != 6:
+        raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
+    return bytes.fromhex("0c1f187600010b000b0010000100") + struct.pack(
+        "<B6s", market, raw_code
     )

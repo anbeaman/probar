@@ -122,6 +122,20 @@ df = pb.tdx.ticks_hist("600519.SH", date="20260618", limit=100)   # 只要最新
 - **机制**:协议按页(每页约 2000 笔)自动翻页拼成该日全量;该日无成交 / 非交易日抛 `NoData`。
   **东财免费源不提供完整历史逐笔**,这是通达信相对东财的独有强项。
 
+## `finance_info` —— 财务快照(v0.8,已实现)
+
+```python
+d = pb.tdx.finance_info("600519.SH")     # -> dict(单只)
+d["total_shares"], d["bvps"], d["ipo_date"]
+```
+
+- **返回 dict**:`symbol, float_shares(流通股本,股), total_shares(总股本,股), holders(股东人数),
+  bvps(每股净资产,元/股), ipo_date(上市日), report_date(财务更新日)`。
+- **只给可靠字段**:通达信本接口的总资产 / 净资产 / 营收 / 利润等**金额字段口径混乱(常与公告差约 10 倍)**,
+  故**刻意不外泄**——季度报表(EPS / 营收等)请用 `pb.dc.financials`(各源独立)。
+- **用途**:`float_shares` 算流通市值 / 换手率,`bvps` 算市净率(PB = price / bvps);
+  数据**截至 `report_date`(非实时)**;无效 / 退市代码抛 `NoData`。
+
 ## 路线图(其余接口)
 
 命名空间已声明完整接口面,未实现者调用抛 `NotImplementedError` 并注明计划版本:
@@ -131,12 +145,12 @@ df = pb.tdx.ticks_hist("600519.SH", date="20260618", limit=100)   # 只要最新
 | `quotes` / `quote` | ✅ v0.1 | 批量实时五档 |
 | `securities` | ✅ v0.2 | 沪深 A 股代码表(北交所用 `pb.dc`) |
 | `kline` | ✅ v0.3 | 历史 K 线(原始价;复权需 xdxr) |
-| `intraday` / `intraday_hist` | 规划 | 当日 / 历史分时 |
+| `intraday` / `intraday_hist` | 不实现 | 通达信分时仅 price+vol,被 `kline(freq="1m")`(含 OHLC+量额)完全覆盖;分时需求用 1m K 线或 `pb.dc.intraday` |
 | `ticks` | ✅ v0.6 | 当日逐笔成交(分笔成交明细,**非** L2 逐笔委托) |
 | `ticks_hist` | ✅ v0.7 | 历史逐笔(往日分笔;比当日少 `num` 列) |
 | `xdxr` | ✅ v0.4 | 除权除息事件(复权基石) |
 | `block` | 规划 | 本地板块 |
-| `finance_info` | 规划 | 基础财务 |
+| `finance_info` | ✅ v0.8 | 财务快照(股本结构 + 每股净资产;金额类口径不可靠故不外泄) |
 
 !!! note "命名空间里没有什么"
     通达信协议**没有**资金流 / 龙虎榜 / 北向数据域,因此 `pb.tdx` 里**不存在** `fund_flow` / `lhb` / `hsgt`

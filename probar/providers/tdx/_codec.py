@@ -375,3 +375,47 @@ def decode_ticks_hist(body: bytes) -> list[dict[str, Any]]:
     if pos != len(body):
         raise SchemaChanged(f"通达信 ticks_hist 响应长度不符: pos {pos} != 实际 {len(body)}")
     return out
+
+
+# 财务快照体:skip 2(num)+ <B6s(market/code)+ 31 个 float + 2 个 H + 2 个 I,共 136 字节定长
+_FININFO_FMT = "<fHHIIffffffffffffffffffffffffffffff"
+
+
+def _yyyymmdd(v: int) -> str | None:
+    """通达信 YYYYMMDD 整数日期 -> "YYYY-MM-DD";0 / 非法 -> None。"""
+    if not v or v < 19000000 or v > 21001231:
+        return None
+    return f"{v // 10000:04d}-{v % 10000 // 100:02d}-{v % 100:02d}"
+
+
+def decode_finance_info(body: bytes) -> dict[str, Any]:
+    """解码 get_finance_info(财务快照)响应 -> 可靠字段 dict。
+
+    体首跳 2 字节(num)+ ``<B6s``(market/code)后,定长 :data:`_FININFO_FMT`。**只外泄经核验可靠的
+    字段**:流通 / 总股本(万股 ×10000 还原为股)、股东人数、每股净资产、上市 / 财务更新日。
+    通达信本接口的总资产 / 净资产 / 营收 / 利润等**金额字段口径混乱(常与公告差约 10 倍)**,
+    刻意不外泄——季度报表请用 ``pb.dc.financials``。亦不外泄通达信内部省份 / 行业编码。
+    """
+    try:
+        pos = 2                                       # 跳 num(本接口只查 1 只)
+        _market, _code = struct.unpack_from("<B6s", body, pos)
+        pos += 7
+        vals = struct.unpack_from(_FININFO_FMT, body, pos)
+        end = pos + struct.calcsize(_FININFO_FMT)
+    except struct.error as e:
+        raise SchemaChanged(f"通达信 finance_info 响应不符合预期协议布局: {e}") from e
+    if end != len(body):
+        raise SchemaChanged(f"通达信 finance_info 响应长度不符: 期望 {end} != 实际 {len(body)}")
+    # 仅按位取出可靠字段;金额类(资产/营收/利润)口径不可靠,位置占位但不外泄
+    float_shares = vals[0]
+    updated_date, ipo_date, total_shares = vals[3], vals[4], vals[5]
+    holders = vals[16]
+    bvps = vals[33]                                   # 每股净资产(元/股),独立可靠字段
+    return {
+        "float_shares": float_shares * 10000.0,       # 流通股本(股)
+        "total_shares": total_shares * 10000.0,        # 总股本(股)
+        "holders": int(holders) if holders else 0,     # 股东人数
+        "bvps": bvps,                                  # 每股净资产(元/股)
+        "ipo_date": _yyyymmdd(ipo_date),               # 上市日期
+        "report_date": _yyyymmdd(updated_date),        # 财务更新日期
+    }
