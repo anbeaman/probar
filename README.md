@@ -33,8 +33,8 @@ python -m probar.playground        # 打开 http://127.0.0.1:8787
 各命名空间暴露其中已实现或计划实现的方法子集。
 
 > **已实现**:`pb.dc` 的 `quote / quotes / kline / intraday / fund_flow / lhb / financials / securities`(东财全链路);
-> `pb.tdx` 的 `quotes / quote`(批量实时五档,clean-room 自写二进制协议、纯标准库零依赖)。
-> 其余接口已在命名空间中声明,调用抛 `NotImplementedError` 并注明计划版本;`pb.ths`(同花顺,实验性)计划 v0.3。
+> `pb.tdx` 的 `quotes / quote`(实时五档)、`securities`(代码表)、`kline`(历史 K 线 + 前/后复权)、`xdxr`(除权除息)
+> —— **clean-room 自写二进制协议、纯标准库零依赖**。其余接口已声明、调用抛 `NotImplementedError`;`pb.ths`(实验性)计划后续。
 
 ```python
 import probar as pb
@@ -44,8 +44,9 @@ pb.dc.quote("600519.SH")
 pb.dc.kline("600519.SH", freq="1d", adjust="qfq")
 pb.dc.fund_flow("000001.SZ")
 
-# 通达信(自写二进制协议:批量实时五档;历史分钟/逐笔规划中)
-pb.tdx.quotes(["000001.SZ", "600519.SH"])   # 一次多只,含 L1 五档盘口
+# 通达信(自写二进制协议:实时五档 / K线含复权 / 除权除息;逐笔规划中)
+pb.tdx.quotes(["000001.SZ", "600519.SH"])            # 批量实时五档
+pb.tdx.kline("600519.SH", freq="1d", adjust="qfq")  # 历史 K 线(前复权,用 xdxr 自算)
 
 # 同花顺(题材增强:问财 / 概念;实验性,v0.3 规划)
 # pb.ths.wencai("近5日主力净流入为正且市值<100亿")   # 规划中(stub,当前抛 NotImplementedError)
@@ -74,10 +75,10 @@ dc.kline("000001.SZ")
 
 ## 路线图
 
-- **v0.1**:东财全链路(`quote/quotes/kline/intraday/fund_flow/lhb/financials/securities`)+ 统一 schema + 命名空间骨架 + 离线测试 + CI + PyPI。
-- **v0.2**(进行中):通达信 **clean-room 二进制协议**(已落地 `quotes/quote` 五档 + 服务器池业务探针)→ 续做 `kline/intraday/ticks/xdxr`;异步全市场 + 国内 canary 节点。
-- **v0.3**:数据质量标记 + 状态页 + 同花顺(问财/概念,实验性)。
-- 暂缓:港美/期货/基金、指标层。
+- **v0.1–0.5**(已发布):东财全链路 8 接口;通达信 **clean-room 二进制协议**(纯标准库零依赖)——
+  `quotes/quote`(五档)、`securities`(代码表)、`kline`(K 线 + 前/后复权)、`xdxr`(除权除息)。
+- **进行中**:通达信 `intraday`/`ticks`(分时 / 逐笔);异步全市场 + 国内 canary 节点。
+- **后续**:数据质量标记 + 状态页;同花顺(问财 / 概念,实验性);暂缓港美/期货/基金、指标层。
 
 ## 稳定性 / 每日维护
 
