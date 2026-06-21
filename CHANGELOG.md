@@ -2,6 +2,12 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.0] - 2026-06-21
+
+### Added
+
+- 通达信 `pb.tdx.ticks_hist`:历史逐笔成交(clean-room 自写 `get_history_transaction_data` 协议命令 `0x0fb5`)。`date` 接受 `"YYYY-MM-DD"` 或 `"YYYYMMDD"`,`limit=None` 取全天、给值取最新 N 笔(自动翻页)。返回 `symbol/date/time(HH:MM)/price/vol(手)/buyorsell`。**与当日逐笔体格式不同**:头部多跳 4 字节、每笔 4 个变长整数、**无 `num`(笔数)列**。实盘全天 4744 笔与参考实现逐字段零不符。东财免费源无完整历史逐笔,为通达信独有强项。
+
 ## [0.6.0] - 2026-06-21
 
 ### Added
@@ -64,6 +70,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[0.7.0]: https://github.com/anbeaman/probar/releases/tag/v0.7.0
 [0.6.0]: https://github.com/anbeaman/probar/releases/tag/v0.6.0
 [0.5.0]: https://github.com/anbeaman/probar/releases/tag/v0.5.0
 [0.4.0]: https://github.com/anbeaman/probar/releases/tag/v0.4.0

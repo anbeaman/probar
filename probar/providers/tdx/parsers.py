@@ -227,6 +227,7 @@ def apply_adjust(df: pd.DataFrame, events: list[dict[str, Any]], adjust: str) ->
 
 
 _TICKS_COLUMNS = ["symbol", "time", "price", "vol", "num", "buyorsell"]
+_TICKS_HIST_COLUMNS = ["symbol", "date", "time", "price", "vol", "buyorsell"]
 
 
 def parse_ticks(raw: list[dict[str, Any]], *, symbol: str) -> pd.DataFrame:
@@ -240,3 +241,16 @@ def parse_ticks(raw: list[dict[str, Any]], *, symbol: str) -> pd.DataFrame:
     df = pd.DataFrame(raw)
     df.insert(0, "symbol", symbol)
     return df.reindex(columns=_TICKS_COLUMNS)
+
+
+def parse_ticks_hist(raw: list[dict[str, Any]], *, symbol: str, date: str) -> pd.DataFrame:
+    """历史逐笔(已解码)-> DataFrame。空 -> :class:`NoData`。
+
+    与当日逐笔同形,但**多 date 列、无 num**(历史协议不返回笔数);date 为查询日(规范化 YYYY-MM-DD)。
+    """
+    if not raw:
+        raise NoData(f"通达信 ticks_hist 无数据: {symbol} {date}")
+    df = pd.DataFrame(raw)
+    df.insert(0, "date", date)
+    df.insert(0, "symbol", symbol)
+    return df.reindex(columns=_TICKS_HIST_COLUMNS)

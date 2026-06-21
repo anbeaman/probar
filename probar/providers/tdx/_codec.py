@@ -341,3 +341,37 @@ def decode_ticks(body: bytes) -> list[dict[str, Any]]:
     if pos != len(body):
         raise SchemaChanged(f"通达信 ticks 响应长度不符: pos {pos} != 实际 {len(body)}")
     return out
+
+
+def decode_ticks_hist(body: bytes) -> list[dict[str, Any]]:
+    """解码 get_history_transaction_data(历史逐笔)响应 -> ``list[dict]``。
+
+    与当日逐笔的体格式**不同**:count(``<H`` 偏移 0)后**跳 4 字节**,每笔只有 time(``<H``)+
+    **4 个 vint**(价差累计 / vol / buyorsell / 1 个保留)——**无 num 字段**。价 = 累计价 / 100。
+    """
+    try:
+        (count,) = struct.unpack_from("<H", body, 0)
+        pos = 2 + 4   # count 后另有 4 字节保留,历史逐笔特有
+        out: list[dict[str, Any]] = []
+        last = 0
+        for _ in range(count):
+            (tmin,) = struct.unpack_from("<H", body, pos)
+            pos += 2
+            price_diff, pos = read_vint(body, pos)
+            vol, pos = read_vint(body, pos)
+            buyorsell, pos = read_vint(body, pos)
+            _reserved, pos = read_vint(body, pos)
+            last += price_diff
+            out.append(
+                {
+                    "time": f"{tmin // 60:02d}:{tmin % 60:02d}",
+                    "price": last / 100.0,
+                    "vol": vol,
+                    "buyorsell": buyorsell,
+                }
+            )
+    except (struct.error, IndexError) as e:
+        raise SchemaChanged(f"通达信 ticks_hist 响应不符合预期协议布局: {e}") from e
+    if pos != len(body):
+        raise SchemaChanged(f"通达信 ticks_hist 响应长度不符: pos {pos} != 实际 {len(body)}")
+    return out

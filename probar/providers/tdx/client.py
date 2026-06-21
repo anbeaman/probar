@@ -236,8 +236,42 @@ class Tdx:
             df = df.tail(limit).reset_index(drop=True)
         return stamp(df, source=self.name)
 
-    def ticks_hist(self, symbol: str, *, date: str) -> pd.DataFrame:
-        raise _todo("ticks_hist")
+    def ticks_hist(
+        self, symbol: str, *, date: str, limit: int | None = None
+    ) -> pd.DataFrame:
+        """历史逐笔成交(指定交易日),返回 DataFrame。
+
+        参数: symbol 证券代码;date 交易日("YYYY-MM-DD" 或 "YYYYMMDD");
+            limit 最多笔数(默认 None 取全天;给值则取最新的;自动分页)。
+        返回列: symbol, date, time(HH:MM,分钟级), price(元), vol(手),
+            buyorsell(买卖方向,通达信原值)。**比当日逐笔少 num 列**(历史协议不返回笔数)。
+        说明: 同一分钟可有多笔;该日无成交/非交易日抛 NoData。东财免费源无完整历史逐笔。
+        示例:
+            >>> pb.tdx.ticks_hist("600519.SH", date="2026-06-19", limit=50)
+        """
+        d = pd.Timestamp(date)
+        date_int = d.year * 10000 + d.month * 100 + d.day
+        date_norm = d.strftime("%Y-%m-%d")
+        market, code = symbols.to_tdx(symbol)
+        t = self._t()
+        raw: list[dict[str, Any]] = []
+        offset = 0
+        while offset <= _MAX_OFFSET:
+            page = t.get_history_transaction_data(market, code, date_int, offset, _TICKS_PER_PAGE)
+            if not page:
+                break
+            raw = page + raw          # offset 越大越早,旧页拼前 -> 整体时间升序
+            offset += len(page)
+            if len(page) < _TICKS_PER_PAGE:
+                break
+            if limit is not None and len(raw) >= limit:
+                break
+        df = parsers.parse_ticks_hist(
+            raw, symbol=str(symbols.normalize(symbol)), date=date_norm
+        )
+        if limit is not None and len(df) > limit:
+            df = df.tail(limit).reset_index(drop=True)
+        return stamp(df, source=self.name)
 
     # ---- 参考/元数据:待实现 ----
     def xdxr(self, symbol: str) -> pd.DataFrame:

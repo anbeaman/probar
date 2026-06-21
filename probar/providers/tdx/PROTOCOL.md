@@ -85,6 +85,14 @@ songzhuangu 送转股 / peigu 配股,均每 10 股口径);category 11/12 缩股 
 体长应被全部 vint 精确消费(`pos == len(body)`,否则判 `SchemaChanged`)。`buyorsell` 取通达信原值:
 常见 `0` 买 / `1` 卖 / `2` 中性,集合竞价等为特殊值,不强行归一。
 
+## 历史逐笔解码(get_history_transaction_data)
+
+**请求** —— 固定前缀 `0c0130010001120012 00b50f`(命令 `0x0fb5`)+ `<IH6sHH (date, market, code, start, count)`;
+`date` 为 `YYYYMMDD` 整数(如 `20260618`),`start`/`count` 同当日逐笔。
+
+**响应** —— 与当日逐笔**布局不同**:`<H` 笔数后**另跳 4 字节保留**(`pos` 从 6 起),每笔 `<H` 分钟戳 +
+**4 个 vint**(价差跨笔累加 `/100`、vol、buyorsell、保留)——**无 `num` 字段**。同样要求 `pos == len(body)`。
+
 > 已实现:`get_security_quotes`(实时五档)、`get_security_count` / `get_security_list`(证券列表)、
-> `get_security_bars`(K 线)、`get_xdxr_info`(除权除息)、`get_transaction_data`(当日逐笔)。
-> 历史逐笔 / 分时等命令按同一框架后续接入。
+> `get_security_bars`(K 线)、`get_xdxr_info`(除权除息)、`get_transaction_data`(当日逐笔)、
+> `get_history_transaction_data`(历史逐笔)。分时等命令按同一框架后续接入。

@@ -91,6 +91,13 @@ class TdxClient:
         body = self._call(_build_ticks_request(market, code, start, count))
         return _codec.decode_ticks(body)
 
+    def get_history_transaction_data(
+        self, market: int, code: str, date: int, start: int, count: int
+    ) -> list[dict[str, Any]]:
+        """拉一页历史逐笔成交(date=YYYYMMDD 整数;start=距当日最新偏移,count<=约 2000)。"""
+        body = self._call(_build_ticks_hist_request(market, code, date, start, count))
+        return _codec.decode_ticks_hist(body)
+
     # ---- 帧收发 ----
     def _call(self, pkg: bytes) -> bytes:
         sock = self._sock
@@ -199,4 +206,16 @@ def _build_ticks_request(market: int, code: str, start: int, count: int) -> byte
         raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
     return bytes.fromhex("0c1708010101 0e000e00c50f".replace(" ", "")) + struct.pack(
         "<H6sHH", market, raw_code, start, count
+    )
+
+
+def _build_ticks_hist_request(
+    market: int, code: str, date: int, start: int, count: int
+) -> bytes:
+    """组历史逐笔请求(0x0fb5):前缀 + `<IH6sHH`(date/market/code/start/count)。"""
+    raw_code = code.encode("ascii") if isinstance(code, str) else bytes(code)
+    if market not in (0, 1, 2) or len(raw_code) != 6:
+        raise ValueError(f"非法 (market, code): ({market!r}, {code!r})")
+    return bytes.fromhex("0c013001000112001200b50f") + struct.pack(
+        "<IH6sHH", date, market, raw_code, start, count
     )

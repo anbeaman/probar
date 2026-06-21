@@ -15,10 +15,11 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import sys
 
 import probar as pb
-from probar.core.errors import NetworkError, RateLimited, SchemaChanged
+from probar.core.errors import NetworkError, NoData, RateLimited, SchemaChanged
 from probar.core.models import KLINE_COLUMNS, QUOTE_COLUMNS, SECURITIES_COLUMNS
 
 PROBES = ["600519.SH", "000001.SZ"]
@@ -133,6 +134,29 @@ def classify_tdx_ticks() -> tuple[str, str]:
     return "ok", f"{len(df)} 笔,最新 {df['time'].iloc[-1]} @ {df['price'].iloc[-1]}"
 
 
+def _recent_weekday() -> str:
+    """最近一个工作日(历史逐笔探针用;挑到节假日 -> NoData 软失败,可接受)。"""
+    d = dt.date.today() - dt.timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= dt.timedelta(days=1)
+    return d.strftime("%Y-%m-%d")
+
+
+def classify_tdx_ticks_hist() -> tuple[str, str]:
+    try:
+        df = pb.tdx.ticks_hist("600519.SH", date=_recent_weekday(), limit=50)
+    except NoData as e:
+        return "network", f"非交易日/无历史逐笔(软): {e}"   # 日期可能挑到节假日,属正常
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    expect = ["symbol", "date", "time", "price", "vol", "buyorsell"]
+    if list(df.columns) != expect:
+        return "schema", f"列契约变化: {list(df.columns)}"
+    if df.empty or (df["price"] <= 0).any():
+        return "data", f"成交价异常(前8): {df['price'].tolist()[:8]}"
+    return "ok", f"{len(df)} 笔 @ {df['date'].iloc[0]}"
+
+
 def main() -> int:
     results: list[tuple[str, str, str]] = [
         (f"dc.kline {s}", *classify_kline(s)) for s in PROBES
@@ -143,6 +167,7 @@ def main() -> int:
     results.append(("tdx.kline", *classify_tdx_kline()))
     results.append(("tdx.xdxr", *classify_tdx_xdxr()))
     results.append(("tdx.ticks", *classify_tdx_ticks()))
+    results.append(("tdx.ticks_hist", *classify_tdx_ticks_hist()))
     hard = [r for r in results if r[1] in ("schema", "data")]
 
     for label, status, detail in results:
