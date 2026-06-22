@@ -17,7 +17,7 @@ class HttpProvider:
         self,
         *,
         timeout: float = 8.0,
-        rate: float = 10.0,
+        rate: float = 5.0,  # 默认放缓(友好访问 + 预防东财 push2 突发 IP 封禁;可调高)
         proxy: str | None = None,
     ) -> None:
         self._http = HttpClient(timeout=timeout, rate=rate, proxy=proxy)
