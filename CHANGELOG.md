@@ -2,6 +2,12 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [3.1.0] - 2026-06-22
+
+### Added
+
+- 通达信 `pb.tdx.block`:**板块及成分股**(clean-room 自写**板块文件协议** `GetBlockInfoMeta` `0x02c5` + `GetBlockInfo` `0x06b9`;拉 `.dat` 文件分块拼接、按 size 截断后解析)。`kind` = `"concept"`(概念)/ `"style"`(风格)/ `"index"`(指数)。返回 `block`(板块名)/ `symbol`(成分股规范代码,如 `000408.SZ`)/ `code`(6 位原始代码),一行一成分股。**正确过滤文件尾部填充块**(参考实现会把填充读成上百万条垃圾)——实测 `沪深300` 恰 300 只、`创业板指` 恰 100 只(与公认成分一致)。东财板块端点被反爬封锁,通达信此路可用且各源数据独立。
+
 ## [3.0.0] - 2026-06-22
 
 ### Changed (BREAKING)
@@ -136,6 +142,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[3.1.0]: https://github.com/anbeaman/probar/releases/tag/v3.1.0
 [3.0.0]: https://github.com/anbeaman/probar/releases/tag/v3.0.0
 [2.1.0]: https://github.com/anbeaman/probar/releases/tag/v2.1.0
 [2.0.0]: https://github.com/anbeaman/probar/releases/tag/v2.0.0

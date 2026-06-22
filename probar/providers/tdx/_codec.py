@@ -458,3 +458,47 @@ def decode_finance_info(body: bytes) -> dict[str, Any]:
         "ipo_date": _yyyymmdd(ipo_date),               # 上市日期
         "report_date": _yyyymmdd(updated_date),        # 财务更新日期
     }
+
+
+# 板块 .dat 文件布局:384 字节头 + <H 块数 + 每块定长 2813 字节
+_BLOCK_HEADER = 384
+_BLOCK_NAME_LEN = 9
+_BLOCK_STOCK_SECTION = 2800
+_BLOCK_CODE_LEN = 7
+_BLOCK_MAX_STOCKS = _BLOCK_STOCK_SECTION // _BLOCK_CODE_LEN   # 400(成分区 2800 / 每代码 7)
+
+
+def decode_block(content: bytes) -> list[dict[str, Any]]:
+    """解析通达信板块 ``.dat`` 文件内容 -> ``[{block, code}]``(一行一成分股)。
+
+    布局:384 字节头 + ``<H`` 块数 + 每块**定长 2813 字节**:9 字节 GBK 板块名 + ``<HH``(成分数, 类型)
+    + 2800 字节成分区(每代码 7 字节 ASCII,上限 400)。文件尾部的**填充块**(板块名为空或成分数 >400)
+    被过滤——这是 clean-room 版比参考实现干净的地方(参考实现会把填充读成上百万条垃圾)。
+    block_type 实测恒为 2(与文件种类冗余),不外泄;只留板块名 + 成分股代码。
+    """
+    _block_size = _BLOCK_NAME_LEN + 4 + _BLOCK_STOCK_SECTION   # 每块定长 2813
+    try:
+        (num,) = struct.unpack_from("<H", content, _BLOCK_HEADER)
+        expected = _BLOCK_HEADER + 2 + num * _block_size
+        if len(content) < expected:                # 截断文件:别静默产出部分行
+            raise SchemaChanged(f"通达信 block 文件截断: {len(content)} < 期望 {expected}")
+        pos = _BLOCK_HEADER + 2
+        out: list[dict[str, Any]] = []
+        for _ in range(num):
+            name = content[pos:pos + _BLOCK_NAME_LEN].decode("gbk", "ignore").rstrip("\x00").strip()
+            pos += _BLOCK_NAME_LEN
+            stock_count, _block_type = struct.unpack_from("<HH", content, pos)
+            pos += 4
+            begin = pos
+            if name and 0 < stock_count <= _BLOCK_MAX_STOCKS:   # 跳过尾部填充/垃圾块
+                for i in range(stock_count):
+                    raw = content[begin + _BLOCK_CODE_LEN * i: begin + _BLOCK_CODE_LEN * (i + 1)]
+                    code = raw.decode("utf-8", "ignore").rstrip("\x00").strip()
+                    if code.isdigit() and len(code) == 6:
+                        out.append({"block": name, "code": code})
+            pos = begin + _BLOCK_STOCK_SECTION                 # 定长步进到下一块
+    except (struct.error, IndexError) as e:
+        raise SchemaChanged(f"通达信 block 文件不符合预期布局: {e}") from e
+    if not out:
+        raise SchemaChanged("通达信 block 文件解析出 0 个有效板块")
+    return out

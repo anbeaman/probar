@@ -110,6 +110,26 @@ class TdxClient:
         body = self._call(_build_finance_info_request(market, code))
         return _codec.decode_finance_info(body)
 
+    def get_block(self, blockfile: str) -> list[dict[str, Any]]:
+        """拉板块文件(meta 取大小 + 分块拉满 + 解析)-> ``[{block, code}]``。
+
+        板块走**文件协议**:先 ``GetBlockInfoMeta`` 取文件字节大小,再按 0x7530 分块 ``GetBlockInfo``
+        拉满、截到真实大小,交 :func:`_codec.decode_block` 解析。一条连接串行多次往返。
+        """
+        meta = self._call(_build_block_meta_request(blockfile))
+        if len(meta) < 4:
+            raise TdxProtocolError(f"板块 meta 响应过短: {len(meta)} 字节")
+        (size,) = struct.unpack_from("<I", meta, 0)
+        if size <= 0 or size > 50_000_000:           # 防异常/超大(板块文件实测 <1MB)
+            raise TdxProtocolError(f"板块文件大小异常: {size}")
+        content = bytearray()
+        while len(content) < size:
+            piece = self._call(_build_block_request(blockfile, len(content), size))[4:]
+            if not piece:                            # 短读:别静默返回半个文件(交上层换服务器)
+                raise TdxProtocolError(f"板块文件短读: 收到 {len(content)}/{size} 字节")
+            content.extend(piece)
+        return _codec.decode_block(bytes(content[:size]))
+
     # ---- 帧收发 ----
     def _call(self, pkg: bytes) -> bytes:
         sock = self._sock
@@ -241,3 +261,15 @@ def _build_finance_info_request(market: int, code: str) -> bytes:
     return bytes.fromhex("0c1f187600010b000b0010000100") + struct.pack(
         "<B6s", market, raw_code
     )
+
+
+def _build_block_meta_request(blockfile: str) -> bytes:
+    """组 GetBlockInfoMeta 请求(命令 0x02c5):固定前缀 + 40 字节文件名(尾部补零)。"""
+    name = blockfile.encode("ascii") if isinstance(blockfile, str) else bytes(blockfile)
+    return bytes.fromhex("0c39186900012a002a00c502") + struct.pack("<40s", name)
+
+
+def _build_block_request(blockfile: str, start: int, size: int) -> bytes:
+    """组 GetBlockInfo 请求(命令 0x06b9):固定前缀 + `<II`(start, size)+ 100 字节文件名。"""
+    name = blockfile.encode("ascii") if isinstance(blockfile, str) else bytes(blockfile)
+    return bytes.fromhex("0c37186a00016e006e00b906") + struct.pack("<II100s", start, size, name)

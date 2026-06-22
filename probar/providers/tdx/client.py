@@ -33,6 +33,8 @@ _FREQ_CATEGORY = {"1m": 8, "5m": 0, "15m": 1, "30m": 2, "60m": 3, "1d": 4, "1w":
 _BARS_PER_PAGE = 800   # 单次 get_security_bars 上限
 _MAX_OFFSET = 65000    # 通达信 start/offset 为 uint16(<65536);分钟线最深约 6.5 万根
 _TICKS_PER_PAGE = 2000  # 单次 get_transaction_data 上限
+# 板块文件:概念 / 风格 / 指数
+_BLOCK_FILES = {"concept": "block_gn.dat", "style": "block_fg.dat", "index": "block_zs.dat"}
 
 _V = "v0.3"
 _SCHEMA = "tdx.quote/1"
@@ -413,8 +415,24 @@ class Tdx:
             self._cache.set("securities", result.copy(deep=True))
         return result
 
-    def block(self) -> pd.DataFrame:
-        raise _todo("block")
+    def block(self, kind: str = "concept") -> pd.DataFrame:
+        """通达信板块及成分股,返回 DataFrame(一行一成分股)。
+
+        参数: kind = "concept"(概念 block_gn)/ "style"(风格 block_fg)/ "index"(指数 block_zs)。
+        返回列: block(板块名), symbol(成分股规范代码,如 000408.SZ), code(6 位原始代码)。
+        说明: 走通达信**板块文件协议**(meta 取大小 + 分块拉 .dat 再解析)。
+            板块列表 = `df["block"].unique()`;某板块成分 = `df[df["block"]==名]`。
+            尾部填充块与非标准代码(部分指数/特殊)已过滤。各源数据独立(与东财板块口径不同)。
+        示例:
+            >>> df = pb.tdx.block("concept")
+            >>> df["block"].nunique()                     # 概念板块数
+            >>> df[df["block"] == "融资融券"]["symbol"]   # 某板块成分股
+        """
+        if kind not in _BLOCK_FILES:
+            raise ValueError(f"不支持的 kind={kind!r},可选: {list(_BLOCK_FILES)}")
+        raw = self._t().get_block(_BLOCK_FILES[kind])
+        df = parsers.parse_block(raw)
+        return stamp(df, source=self.name, kind=kind)
 
     def finance_info(self, symbol: str) -> dict[str, Any]:
         """财务快照(股本结构 + 基本面常用字段),返回 dict。

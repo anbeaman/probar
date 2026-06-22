@@ -123,6 +123,20 @@ def classify_tdx_index_kline() -> tuple[str, str]:
     return "ok", f"上证指数 {len(df)} 根,最新 {df['close'].iloc[-1]}"
 
 
+def classify_tdx_block() -> tuple[str, str]:
+    try:
+        df = pb.tdx.block("index")   # 指数板块:沪深300 应恰 300 只(强校验)
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    if list(df.columns) != ["block", "symbol", "code"]:
+        return "schema", f"列契约变化: {list(df.columns)}"
+    hs300 = len(df[df["block"] == "沪深300"])
+    cyb = len(df[df["block"] == "创业板指"])
+    if hs300 != 300 or cyb != 100:
+        return "data", f"成分数异常: 沪深300={hs300}(应300) 创业板指={cyb}(应100)"
+    return "ok", f"{df['block'].nunique()} 指数板块,沪深300={hs300} 创业板指={cyb}"
+
+
 def classify_tdx_xdxr() -> tuple[str, str]:
     try:
         df = pb.tdx.xdxr("600519.SH")
@@ -195,6 +209,7 @@ def main() -> int:
     results.append(("tdx.kline", *classify_tdx_kline()))
     results.append(("tdx.index_kline", *classify_tdx_index_kline()))
     results.append(("tdx.xdxr", *classify_tdx_xdxr()))
+    results.append(("tdx.block", *classify_tdx_block()))
     results.append(("tdx.ticks", *classify_tdx_ticks()))
     results.append(("tdx.ticks_hist", *classify_tdx_ticks_hist()))
     results.append(("tdx.finance_info", *classify_tdx_finance_info()))

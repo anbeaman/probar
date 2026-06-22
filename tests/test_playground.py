@@ -40,10 +40,10 @@ def test_interfaces_catalog():
 
 
 def test_call_stub_returns_error_cleanly():
-    # tdx.block 仍是 stub(NotImplementedError,无参数);测试台应清晰回显异常类型
+    # dc.hsgt 仍是 stub(NotImplementedError,无参数);测试台应清晰回显异常类型
     r = client.post(
         "/api/call",
-        json={"namespace": "tdx", "method": "block", "params": {}},
+        json={"namespace": "dc", "method": "hsgt", "params": {}},
     )
     j = r.json()
     assert j["ok"] is False

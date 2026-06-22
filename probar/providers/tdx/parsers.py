@@ -290,3 +290,34 @@ def parse_finance_info(raw: dict[str, Any], *, symbol: str) -> dict[str, Any]:
     if not raw or (raw.get("total_shares") or 0) <= 0:
         raise NoData(f"通达信 finance_info 无数据: {symbol}")
     return {"symbol": symbol, **raw}
+
+
+_BLOCK_COLUMNS = ["block", "symbol", "code"]
+# 板块成分里要剔除的指数代码前缀(深指/通达信板块指数/沪老指/北证指数)
+_BLOCK_INDEX_PREFIXES = ("399", "880", "999", "899")
+
+
+def parse_block(raw: list[dict[str, Any]]) -> pd.DataFrame:
+    """板块成分(已解码)-> DataFrame ``[block, symbol, code]``;空 -> :class:`NoData`。
+
+    block 板块名;code 6 位原始代码;symbol 规范化代码(由前缀推断交易所,如 ``000408.SZ``)。
+    无法规范化的代码(非标准 A 股,如部分指数/特殊代码)跳过。
+    """
+    if not raw:
+        raise NoData("通达信 block 无数据")
+    rows = []
+    for r in raw:
+        code = r["code"]
+        # 剔除明显的指数代码(深指 399 / 通达信板块指数 880 / 沪老指 999 / 北证指数 899)。
+        # 用黑名单而非股票前缀白名单:个股前缀会持续新增(如创业板 302),白名单会误杀新股。
+        # 沪市指数 000xxx 与深市个股同前缀、bare code 难分,暂随个股保留。
+        if code[:3] in _BLOCK_INDEX_PREFIXES:
+            continue
+        try:
+            sym = symbols.normalize(code)
+        except ValueError:
+            continue   # 无法规范化的特殊代码跳过
+        rows.append({"block": r["block"], "symbol": sym.ts_code, "code": code})
+    if not rows:
+        raise NoData("通达信 block 无有效成分股")
+    return pd.DataFrame(rows, columns=_BLOCK_COLUMNS)

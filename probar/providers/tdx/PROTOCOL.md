@@ -107,6 +107,21 @@ songzhuangu 送转股 / peigu 配股,均每 10 股口径);category 11/12 缩股 
 `9 + 136`。**注意**:本接口的资产 / 营收 / 利润字段口径混乱(常与公告差约 10 倍),probar 只外泄经核验
 可靠的股本 / 股东人数 / 每股净资产 / 日期,金额报表交 `pb.dc.financials`。
 
+## 板块及成分股(get_block — 文件协议)
+
+板块走**文件协议**(两条命令 + 分块拉取):
+
+- **GetBlockInfoMeta**(命令 `0x02c5`)—— 请求:固定前缀 `0c39186900012a002a00c502` + **40 字节文件名**(尾补零);
+  响应前 4 字节 `<I` 为文件字节大小。
+- **GetBlockInfo**(命令 `0x06b9`)—— 请求:固定前缀 `0c37186a00016e006e00b906` + `<II`(start, size)+ **100 字节文件名**;
+  响应**跳 4 字节**后为该段文件内容。按 `0x7530` 字节一段循环拉满、截到 size。
+
+**`.dat` 布局** —— 384 字节头 + `<H` 块数;每块**定长 2813 字节**:9 字节 GBK 板块名 + `<HH`(成分数, 类型)+
+2800 字节成分区(每代码 7 字节 ASCII,上限 400)。文件尾部有**填充块**(板块名空 / 成分数 >400),
+clean-room 版按 size 截断 + 过滤填充(参考实现会把填充读成上百万条垃圾)。文件名:`block_gn.dat` 概念 /
+`block_fg.dat` 风格 / `block_zs.dat` 指数。
+
 > 已实现:`get_security_quotes`(实时五档)、`get_security_count` / `get_security_list`(证券列表)、
-> `get_security_bars`(K 线)、`get_xdxr_info`(除权除息)、`get_transaction_data`(当日逐笔)、
-> `get_history_transaction_data`(历史逐笔)、`get_finance_info`(财务快照)。其余命令按同一框架后续接入。
+> `get_security_bars` / `get_index_bars`(K 线 / 指数 K 线)、`get_xdxr_info`(除权除息)、
+> `get_transaction_data` / `get_history_transaction_data`(当日 / 历史逐笔)、`get_finance_info`(财务快照)、
+> `get_block`(板块及成分股,文件协议)。其余命令按同一框架后续接入。
