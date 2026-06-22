@@ -2,6 +2,16 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.1.0] - 2026-06-22
+
+### Added
+
+- 通达信 `pb.tdx.index_kline`:**指数历史 K 线**(上证 / 深成 / 创业板指 / 沪深300 等;clean-room 自写——请求与个股 `get_security_bars` 完全相同,但指数 bar 每根末尾多 `<HH` 上涨/下跌家数)。返回列 `symbol, date, open, high, low, close, volume(手), amount(元), up_count(上涨家数), down_count(下跌家数)`——比个股多**市场宽度**两列。实盘上证指数日线与参考实现逐 bar 零不符。
+
+### Fixed
+
+- `pb.tdx.kline` 传入**指数代码**(如 `000001.SH` 上证指数)此前会抛 `SchemaChanged`(指数 bar 布局与个股不同);现改抛 `NotSupported` 并明确指引用 `index_kline`。
+
 ## [2.0.0] - 2026-06-21
 
 ### Changed (BREAKING)
@@ -117,6 +127,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[2.1.0]: https://github.com/anbeaman/probar/releases/tag/v2.1.0
 [2.0.0]: https://github.com/anbeaman/probar/releases/tag/v2.0.0
 [1.0.0]: https://github.com/anbeaman/probar/releases/tag/v1.0.0
 [0.8.1]: https://github.com/anbeaman/probar/releases/tag/v0.8.1

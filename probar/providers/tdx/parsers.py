@@ -165,6 +165,43 @@ def parse_kline(raw: list[dict[str, Any]], *, symbol: str, freq: str) -> pd.Data
     return df[_TDX_KLINE_COLUMNS]
 
 
+# 指数 K 线:比个股多 up_count/down_count(上涨/下跌家数,指数协议真实返回的市场宽度)
+_TDX_INDEX_KLINE_COLUMNS = [
+    "symbol", "date", "open", "high", "low", "close", "volume", "amount", "up_count", "down_count",
+]
+
+
+def parse_index_kline(raw: list[dict[str, Any]], *, symbol: str, freq: str) -> pd.DataFrame:
+    """指数 K 线 bar(已解码)-> 含 :data:`_TDX_INDEX_KLINE_COLUMNS` 的 DataFrame。
+
+    比个股 kline 多 up_count(上涨家数)/ down_count(下跌家数)——指数协议真实返回的市场宽度;
+    同样**只含协议真实字段**(无自算 pct_chg / 恒空 turnover)。日/周/月 date 归零点。
+    **注意**:指数成交量协议**已是手**(不同于个股给的是股),故 volume 不再 /100。
+    """
+    if not raw:
+        raise NoData(f"通达信 index_kline 无数据: {symbol}")
+    rows = [
+        {
+            "symbol": symbol,
+            "date": b["datetime"],
+            "open": b["open"],
+            "high": b["high"],
+            "low": b["low"],
+            "close": b["close"],
+            "volume": b["vol"],           # 指数协议成交量已是手,不同于个股的股,不再 /100
+            "amount": b["amount"],
+            "up_count": b["up_count"],
+            "down_count": b["down_count"],
+        }
+        for b in raw
+    ]
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["date"])
+    if freq not in _MINUTE_FREQS:
+        df["date"] = df["date"].dt.normalize()
+    return df[_TDX_INDEX_KLINE_COLUMNS]
+
+
 _XDXR_COLUMNS = [
     "symbol", "date", "category", "name", "fenhong", "songzhuangu", "peigu", "peigujia", "suogu",
 ]

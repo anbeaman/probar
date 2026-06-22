@@ -79,6 +79,13 @@ class TdxClient:
         body = self._call(_build_bars_request(category, market, code, start, count))
         return _codec.decode_kline(body, category)
 
+    def get_index_bars(
+        self, category: int, market: int, code: str, start: int, count: int
+    ) -> list[dict[str, Any]]:
+        """拉一页指数 K 线(请求同个股,响应每 bar 多 up/down 家数),返回 ``list[dict]``。"""
+        body = self._call(_build_bars_request(category, market, code, start, count))
+        return _codec.decode_index_kline(body, category)
+
     def get_xdxr_info(self, market: int, code: str) -> list[dict[str, Any]]:
         """拉除权除息信息(全历史事件),返回 ``list[dict]``。"""
         body = self._call(_build_xdxr_request(market, code))

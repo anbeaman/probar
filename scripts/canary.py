@@ -111,6 +111,18 @@ def classify_tdx_kline() -> tuple[str, str]:
     return "ok", f"{len(df)} 根,最新收盘 {df['close'].iloc[-1]}"
 
 
+def classify_tdx_index_kline() -> tuple[str, str]:
+    try:
+        df = pb.tdx.index_kline("000001.SH", limit=5)   # 上证指数
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    if list(df.columns) != [*_TDX_KLINE_COLS, "up_count", "down_count"]:
+        return "schema", f"列契约变化: {list(df.columns)}"
+    if df.empty or (df["close"] <= 0).any():
+        return "data", f"指数收盘异常(前8): {df['close'].tolist()[:8]}"
+    return "ok", f"上证指数 {len(df)} 根,最新 {df['close'].iloc[-1]}"
+
+
 def classify_tdx_xdxr() -> tuple[str, str]:
     try:
         df = pb.tdx.xdxr("600519.SH")
@@ -181,6 +193,7 @@ def main() -> int:
     results.append(("tdx.quotes", *classify_tdx_quote()))
     results.append(("tdx.securities", *classify_tdx_securities()))
     results.append(("tdx.kline", *classify_tdx_kline()))
+    results.append(("tdx.index_kline", *classify_tdx_index_kline()))
     results.append(("tdx.xdxr", *classify_tdx_xdxr()))
     results.append(("tdx.ticks", *classify_tdx_ticks()))
     results.append(("tdx.ticks_hist", *classify_tdx_ticks_hist()))

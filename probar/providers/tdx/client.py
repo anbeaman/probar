@@ -47,6 +47,18 @@ def _native(v: Any) -> Any:
     return v.item() if hasattr(v, "item") else v
 
 
+def _is_index(market: int, code: str) -> bool:
+    """该 (market, code) 是否指数(沪 000xxx/880xxx/999xxx,深 399xxx;个股前缀不在此列)。
+
+    指数 K 线协议布局与个股不同(每 bar 多上涨/下跌家数),须走 index_kline。
+    """
+    if market == 1:        # 沪:指数 000/880/999 开头(个股是 6xx)
+        return code[:3] in ("000", "880", "999")
+    if market == 0:        # 深:指数 399 开头(个股是 00x/30x)
+        return code[:3] == "399"
+    return False
+
+
 class Tdx:
     name = "tdx"
 
@@ -171,6 +183,8 @@ class Tdx:
         if start is not None:
             start = pd.Timestamp(start).strftime("%Y-%m-%d")   # 归一日期,兼容未补零写法
         market, code = symbols.to_tdx(symbol)
+        if _is_index(market, code):   # 指数 bar 布局不同,给清晰指引而非 SchemaChanged
+            raise NotSupported(f"{symbol} 是指数;指数 K 线请用 pb.tdx.index_kline()")
         t = self._t()
         raw: list[dict[str, Any]] = []
         offset = 0
@@ -202,6 +216,62 @@ class Tdx:
             raise NoData(f"通达信 kline 区间无数据: {symbol}")
         adj = adjust or "none"
         return stamp(df.reset_index(drop=True), source=self.name, freq=freq, adjust=adj)
+
+    def index_kline(
+        self,
+        symbol: str,
+        *,
+        freq: str = "1d",
+        start: str | None = None,
+        end: str | None = None,
+        limit: int = 800,
+    ) -> pd.DataFrame:
+        """指数历史 K 线(上证 / 深成 / 创业板指 / 沪深300 等),返回 DataFrame。
+
+        参数:
+            freq: 1m/5m/15m/30m/60m/1d/1w/1M(默认 1d);
+            start, end: "YYYY-MM-DD";省略 start 取最近 limit 根;limit 默认 800。
+        返回列: symbol, date, open, high, low, close, volume(手), amount(元),
+            up_count(上涨家数), down_count(下跌家数)。
+        说明: 指数无复权;up_count/down_count 是指数协议真实返回的**市场宽度**(个股 kline 没有)。
+            只接受指数代码(沪 000xxx/880xxx/999xxx、深 399xxx);个股请用 :meth:`kline`。
+        示例:
+            >>> pb.tdx.index_kline("000001.SH", limit=5)   # 上证指数
+        """
+        if freq not in _FREQ_CATEGORY:
+            raise ValueError(f"不支持的 freq={freq!r},可选: {list(_FREQ_CATEGORY)}")
+        if start is not None:
+            start = pd.Timestamp(start).strftime("%Y-%m-%d")
+        market, code = symbols.to_tdx(symbol)
+        if not _is_index(market, code):
+            raise NotSupported(f"{symbol} 非指数代码;个股 K 线请用 pb.tdx.kline()")
+        category = _FREQ_CATEGORY[freq]
+        t = self._t()
+        raw: list[dict[str, Any]] = []
+        offset = 0
+        while offset <= _MAX_OFFSET:
+            page = t.get_index_bars(category, market, code, offset, _BARS_PER_PAGE)
+            if not page:
+                break
+            raw = page + raw          # offset 越大越旧,旧页拼前 -> 整体时间升序
+            offset += len(page)
+            if len(page) < _BARS_PER_PAGE:
+                break
+            if start is None:
+                if len(raw) >= limit:
+                    break
+            elif raw[0]["datetime"][:10] < start:
+                break
+        df = parsers.parse_index_kline(raw, symbol=str(symbols.normalize(symbol)), freq=freq)
+        if start:
+            df = df[df["date"] >= pd.Timestamp(start)]
+        if end:
+            df = df[df["date"] < pd.Timestamp(end) + pd.Timedelta(days=1)]
+        if start is None and len(df) > limit:
+            df = df.tail(limit)
+        if df.empty:
+            raise NoData(f"通达信 index_kline 区间无数据: {symbol}")
+        return stamp(df.reset_index(drop=True), source=self.name, freq=freq)
 
     def intraday(self, symbol: str) -> pd.DataFrame:
         """**有意不提供**:通达信分时仅 price+vol,已被 `kline(freq="1m")`(含 OHLC+量额)完全覆盖。

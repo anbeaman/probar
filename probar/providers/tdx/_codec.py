@@ -263,6 +263,52 @@ def decode_kline(body: bytes, category: int) -> list[dict[str, Any]]:
     return out
 
 
+def decode_index_kline(body: bytes, category: int) -> list[dict[str, Any]]:
+    """解码指数 K 线响应 -> ``list[dict]``。
+
+    与 :func:`decode_kline` **同布局**,但每 bar 末尾**多 4 字节** ``<HH``
+    (up_count 上涨家数 / down_count 下跌家数)—— 这是指数 bar 相对个股 bar 的唯一差异
+    (故个股解码器读指数响应会 pos 不足而判 SchemaChanged)。
+    """
+    try:
+        (count,) = struct.unpack_from("<H", body, 0)
+        pos = 2
+        out: list[dict[str, Any]] = []
+        base = 0
+        for _ in range(count):
+            year, month, day, hour, minute, pos = _kline_datetime(category, body, pos)
+            open_diff, pos = read_vint(body, pos)
+            close_diff, pos = read_vint(body, pos)
+            high_diff, pos = read_vint(body, pos)
+            low_diff, pos = read_vint(body, pos)
+            (vol_raw,) = struct.unpack_from("<I", body, pos)
+            pos += 4
+            (amount_raw,) = struct.unpack_from("<I", body, pos)
+            pos += 4
+            (up_count, down_count) = struct.unpack_from("<HH", body, pos)
+            pos += 4
+            abs_open = open_diff + base
+            out.append(
+                {
+                    "datetime": f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}",
+                    "open": abs_open / 1000.0,
+                    "close": (abs_open + close_diff) / 1000.0,
+                    "high": (abs_open + high_diff) / 1000.0,
+                    "low": (abs_open + low_diff) / 1000.0,
+                    "vol": decode_amount(vol_raw),
+                    "amount": decode_amount(amount_raw),
+                    "up_count": up_count,
+                    "down_count": down_count,
+                }
+            )
+            base = abs_open + close_diff
+    except (struct.error, IndexError, OverflowError) as e:
+        raise SchemaChanged(f"通达信 index_kline 响应不符合预期协议布局: {e}") from e
+    if pos != len(body):
+        raise SchemaChanged(f"通达信 index_kline 响应长度不符: pos {pos} != 实际 {len(body)}")
+    return out
+
+
 _XDXR_NAME = {
     1: "除权除息", 2: "送配股上市", 3: "非流通股上市", 4: "未知股本变动", 5: "股本变化",
     6: "增发新股", 7: "股份回购", 8: "增发新股上市", 9: "转配股上市", 10: "可转债上市",

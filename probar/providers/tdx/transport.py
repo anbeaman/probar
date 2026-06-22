@@ -130,6 +130,15 @@ class TdxTransport:
                 lambda c: c.get_security_bars(category, market, code, start, count)
             )
 
+    def get_index_bars(
+        self, category: int, market: int, code: str, start: int, count: int
+    ) -> list[dict[str, Any]]:
+        """拉一页指数 K 线 bar(失败换服务器)。"""
+        with self._lock:
+            return self._with_retry(
+                lambda c: c.get_index_bars(category, market, code, start, count)
+            )
+
     def get_xdxr_info(self, market: int, code: str) -> list[dict[str, Any]]:
         """拉除权除息信息(失败换服务器)。"""
         with self._lock:

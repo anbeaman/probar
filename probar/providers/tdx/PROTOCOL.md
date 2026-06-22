@@ -66,6 +66,10 @@ category, 1, start, count, 0, 0, 0)`(命令 `0x052d`)。`category` 为周期(1m=
 价格 `/1000`:开 = (开差 + 上一 bar 收基准)/1000,收/高/低 = (绝对开 + 各自差分)/1000,下一 bar 基准 =
 绝对开 + 收差。bar 内成交量为**股数**(上层 /100 转手)。
 
+**指数 K 线**(`get_index_bars`)—— **请求与 `get_security_bars` 完全相同**(同 cmd `0x052d`),但响应里
+每 bar 末尾**多 4 字节** `<HH`(up_count 上涨家数 / down_count 下跌家数)。故个股解码器读指数响应会
+`pos` 不足而判 `SchemaChanged`;指数走 `decode_index_kline`、对外用 `pb.tdx.index_kline`。
+
 ## 除权除息解码(get_xdxr_info)
 
 **请求** —— 固定前缀 `0c1f187600010b000b000f000100` + `<B6s (market, code)`。

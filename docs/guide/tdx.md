@@ -84,6 +84,20 @@ df = pb.tdx.kline("000001.SZ", freq="5m", start="2026-06-01")  # 区间分钟线
 - **注意**:复权仅调 OHLC;**qfq 锚最新、hfq 锚拉取窗口最早**(窗口相对,不与东财逐值相等)。
   分钟历史比东财更深,是通达信的强项。
 - **复权限制**:仅日线/分钟线(`1w`/`1M` 复权抛 `NotSupported`);给 `end` 时 qfq 锚"拉取到的最新"而非 end;缩股暂不参与复权。
+- **指数请用 `index_kline`**:对指数代码(上证/深成等)调 `kline` 会抛 `NotSupported` 指引——指数 bar 布局与个股不同。
+
+## `index_kline` —— 指数 K 线(v2.1,已实现)
+
+```python
+df = pb.tdx.index_kline("000001.SH", limit=300)        # 上证指数日线
+df = pb.tdx.index_kline("399006.SZ", freq="30m")       # 创业板指 30 分钟
+df = pb.tdx.index_kline("000300.SH", start="2026-01-01")  # 沪深300 区间
+```
+
+- **参数**:`freq` = `1m/5m/15m/30m/60m/1d/1w/1M`;`start`/`end`/`limit` 同 `kline`(指数无复权,无 `adjust`)。
+- **返回列**:`symbol, date, open, high, low, close, volume(手), amount(元), up_count(上涨家数), down_count(下跌家数)`。
+- **比个股多 `up_count`/`down_count`**:指数协议真实返回的**市场宽度**(当根周期内成分股的上涨/下跌家数),个股 K 线没有。
+- **只接受指数代码**:沪 `000xxx`/`880xxx`/`999xxx`、深 `399xxx`;个股传入抛 `NotSupported` 指回 `kline`。
 
 ## `xdxr` —— 除权除息事件(v0.4,已实现)
 
@@ -147,6 +161,7 @@ d["total_shares"], d["bvps"], d["ipo_date"]
 | `quotes` / `quote` | ✅ v0.1 | 批量实时五档 |
 | `securities` | ✅ v0.2 | 沪深 A 股代码表(北交所用 `pb.dc`) |
 | `kline` | ✅ v0.3 | 历史 K 线(原始价;复权需 xdxr) |
+| `index_kline` | ✅ v2.1 | 指数 K 线(上证/深成等;多上涨/下跌家数) |
 | `intraday` / `intraday_hist` | 不实现 | 通达信分时仅 price+vol,被 `kline(freq="1m")`(含 OHLC+量额)完全覆盖;分时需求用 1m K 线或 `pb.dc.intraday` |
 | `ticks` | ✅ v0.6 | 当日逐笔成交(分笔成交明细,**非** L2 逐笔委托) |
 | `ticks_hist` | ✅ v0.7 | 历史逐笔(往日分笔;比当日少 `num` 列) |
