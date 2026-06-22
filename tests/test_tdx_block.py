@@ -112,6 +112,31 @@ def test_block_bad_kind():
         Tdx().block("xyz")
 
 
+def test_block_list_and_cons():
+    from probar import Tdx
+
+    rows = [{"block": "板块A", "code": "600519"}, {"block": "板块A", "code": "000001"},
+            {"block": "板块B", "code": "300750"}]
+    tdx = Tdx()
+    tdx._transport = _FakeTransport(rows)
+    lst = tdx.block_list("concept")                       # 有哪些板块
+    assert list(lst.columns) == ["block", "count"]
+    assert dict(zip(lst["block"], lst["count"], strict=True)) == {"板块A": 2, "板块B": 1}
+    cons = tdx.block_cons("板块A", kind="concept")        # 某板块成分股
+    assert list(cons.columns) == ["symbol", "code"]
+    assert set(cons["symbol"]) == {"600519.SH", "000001.SZ"}
+    assert cons.attrs["block"] == "板块A"
+
+
+def test_block_cons_unknown_is_nodata():
+    from probar import Tdx
+
+    tdx = Tdx()
+    tdx._transport = _FakeTransport([{"block": "板块A", "code": "600519"}])
+    with pytest.raises(NoData):
+        tdx.block_cons("不存在的板块", kind="concept")
+
+
 @pytest.mark.network
 def test_block_live():
     import probar as pb

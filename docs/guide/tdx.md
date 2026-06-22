@@ -153,21 +153,23 @@ d["total_shares"], d["bvps"], d["ipo_date"]
 - **用途**:`float_shares` 算流通市值 / 换手率,`bvps` 算市净率(PB = price / bvps);
   数据**截至 `report_date`(非实时)**;无效 / 退市代码抛 `NoData`。
 
-## `block` —— 板块及成分股(v3.1,已实现)
+## `block` / `block_list` / `block_cons` —— 板块及成分股(v3.1,v3.2 拆分)
 
 ```python
-df = pb.tdx.block("concept")                 # 概念板块(默认)
-df["block"].nunique()                        # 板块数
-df[df["block"] == "融资融券"]["symbol"]      # 某板块成分股
-pb.tdx.block("index")                        # 指数板块(沪深300/创业板指…)
-pb.tdx.block("style")                        # 风格板块
+pb.tdx.block_list("concept")                       # 有哪些板块 -> [block, count]
+pb.tdx.block_cons("沪深300", kind="index")         # 某板块成分股 -> [symbol, code]
+pb.tdx.block("concept")                            # 完整扁平表 -> [block, symbol, code]
 ```
 
-- **参数**:`kind` = `"concept"`(概念,默认)/ `"style"`(风格)/ `"index"`(指数)。
-- **返回列**:`block`(板块名)、`symbol`(成分股规范代码,如 `000408.SZ`)、`code`(6 位原始代码);**一行一成分股**。
-- **机制**:走通达信**板块文件协议**(`GetBlockInfoMeta` 取大小 + 分块拉 `.dat` 再解析)。
-  文件尾部的**填充块**与非标准代码(部分指数/特殊)已过滤——`沪深300` 恰 300 只、`创业板指` 恰 100 只(与公认成分一致)。
-- **各源独立**:与东财板块口径不同(板块划分/命名各家不一致,按需选源)。
+- **`block_list(kind)`** —— **有哪些板块**,返回 `[block(板块名), count(成分股数)]`。
+- **`block_cons(block, kind=...)`** —— **某板块的成分股**,返回 `[symbol, code]`;板块名是键(传名,见下)。
+- **`block(kind)`** —— 完整扁平表 `[block, symbol, code]`(一次拿全)。
+- **`kind`**:`"concept"`(概念)/ `"style"`(风格)/ `"index"`(规模指数,如沪深300)。默认 TTL 缓存。
+- **板块无独立"代码",以板块名为键**:通达信标准协议无可报价的板块指数(沪市无 880/881 代码)。
+- **未提供 行业 / 地区**:此服务器 `block_di.dat`(地区)为空;行业在 `tdxhy.cfg`(股票→行业码,需另接 码→名 表)。
+- **板块涨跌幅 / 资金流(排名)取不到**:通达信无可报价板块指数、无资金流域 —— **板块行情榜 / 资金流榜请用 `pb.dc`**。
+- **机制 / 正确性**:板块文件协议(`GetBlockInfoMeta` + 分块拉 `.dat`),过滤尾部填充块与指数代码;
+  实测 `沪深300` 恰 300 只、`创业板指` 恰 100 只(与公认成分一致)。各源口径独立。
 
 ## 路线图(其余接口)
 

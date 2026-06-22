@@ -2,6 +2,17 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [3.2.0] - 2026-06-22
+
+### Added
+
+- 通达信板块拆为两个接口:`pb.tdx.block_list(kind)`(**有哪些板块** → `[block, count]`)+ `pb.tdx.block_cons(block, kind=…)`(**某板块成分股** → `[symbol, code]`,传板块名)。原 `block(kind)` 扁平表 `[block, symbol, code]` 保留。三者**共享 TTL 缓存**(板块文件 ~数百 KB,避免重复拉取)。
+
+### 说明(通达信板块的边界)
+
+- 通达信标准协议**不提供板块涨跌幅 / 主力资金流排名**:无可报价的板块指数(沪市无 880/881 代码)、协议无资金流数据域。**板块行情榜 / 资金流榜请用 `pb.dc`**(东财强项)。
+- **行业**(在 `tdxhy.cfg`,为"股票→行业码"、需另接码→名表)与**地区**(此服务器 `block_di.dat` 为空)暂未提供;板块以**名**为键(无可报价代码,故 `block_cons` 传板块名而非代码)。
+
 ## [3.1.0] - 2026-06-22
 
 ### Added
@@ -142,6 +153,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[3.2.0]: https://github.com/anbeaman/probar/releases/tag/v3.2.0
 [3.1.0]: https://github.com/anbeaman/probar/releases/tag/v3.1.0
 [3.0.0]: https://github.com/anbeaman/probar/releases/tag/v3.0.0
 [2.1.0]: https://github.com/anbeaman/probar/releases/tag/v2.1.0

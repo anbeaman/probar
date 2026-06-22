@@ -415,24 +415,60 @@ class Tdx:
             self._cache.set("securities", result.copy(deep=True))
         return result
 
-    def block(self, kind: str = "concept") -> pd.DataFrame:
-        """通达信板块及成分股,返回 DataFrame(一行一成分股)。
-
-        参数: kind = "concept"(概念 block_gn)/ "style"(风格 block_fg)/ "index"(指数 block_zs)。
-        返回列: block(板块名), symbol(成分股规范代码,如 000408.SZ), code(6 位原始代码)。
-        说明: 走通达信**板块文件协议**(meta 取大小 + 分块拉 .dat 再解析)。
-            板块列表 = `df["block"].unique()`;某板块成分 = `df[df["block"]==名]`。
-            尾部填充块与非标准代码(部分指数/特殊)已过滤。各源数据独立(与东财板块口径不同)。
-        示例:
-            >>> df = pb.tdx.block("concept")
-            >>> df["block"].nunique()                     # 概念板块数
-            >>> df[df["block"] == "融资融券"]["symbol"]   # 某板块成分股
-        """
+    def _block_df(self, kind: str, *, use_cache: bool = True) -> pd.DataFrame:
+        """拉某类板块的完整 ``[block, symbol, code]``(带 TTL 缓存,板块文件 ~数百 KB)。"""
         if kind not in _BLOCK_FILES:
             raise ValueError(f"不支持的 kind={kind!r},可选: {list(_BLOCK_FILES)}")
+        key = f"block:{kind}"
+        if use_cache:
+            cached = self._cache.get(key)
+            if cached is not None:
+                return cached.copy(deep=True)   # 防用户原地改写污染缓存
         raw = self._t().get_block(_BLOCK_FILES[kind])
         df = parsers.parse_block(raw)
-        return stamp(df, source=self.name, kind=kind)
+        if use_cache:
+            self._cache.set(key, df.copy(deep=True))
+        return df
+
+    def block(self, kind: str = "concept", *, use_cache: bool = True) -> pd.DataFrame:
+        """某类板块及其成分股的**完整扁平表**,返回 DataFrame(一行一成分股)。
+
+        参数: kind = "concept"(概念)/ "style"(风格)/ "index"(规模指数,如沪深300)。
+        返回列: block(板块名), symbol(成分股规范代码), code(6 位原始代码)。
+        说明: 拆分版见 :meth:`block_list`(有哪些板块)/ :meth:`block_cons`(某板块成分股)。
+            走板块文件协议、默认 TTL 缓存;尾部填充块与指数代码已过滤。
+        """
+        return stamp(self._block_df(kind, use_cache=use_cache).copy(), source=self.name, kind=kind)
+
+    def block_list(self, kind: str = "concept", *, use_cache: bool = True) -> pd.DataFrame:
+        """**有哪些板块**,返回 DataFrame ``[block, count]``(板块名 + 成分股数)。
+
+        参数: kind = "concept"(概念)/ "style"(风格)/ "index"(规模指数)。
+            此服务器**不提供行业 / 地区板块**(地区 block_di 为空;行业在 tdxhy.cfg,需另接)。
+        说明: 板块无独立"代码",以**板块名**为键;取某板块成分股用 :meth:`block_cons`。各源口径不同。
+        示例:
+            >>> pb.tdx.block_list("concept").head()         # [block, count]
+        """
+        df = self._block_df(kind, use_cache=use_cache)
+        out = df.groupby("block", sort=False).size().reset_index(name="count")
+        return stamp(out, source=self.name, kind=kind)
+
+    def block_cons(
+        self, block: str, *, kind: str = "concept", use_cache: bool = True
+    ) -> pd.DataFrame:
+        """**某板块的成分股**,返回 DataFrame ``[symbol, code]``。
+
+        参数: block 板块**名**(见 :meth:`block_list`);kind 该板块所属类别(默认 concept)。
+        说明: 板块名是键(通达信板块无可报价代码);该名在该 kind 下不存在抛 :class:`NoData`。
+        示例:
+            >>> pb.tdx.block_cons("沪深300", kind="index")   # 沪深300 成分股
+        """
+        df = self._block_df(kind, use_cache=use_cache)
+        sub = df[df["block"] == block]
+        if sub.empty:
+            raise NoData(f"通达信板块无此板块: {block!r}(kind={kind})")
+        out = sub[["symbol", "code"]].reset_index(drop=True)
+        return stamp(out, source=self.name, kind=kind, block=block)
 
     def finance_info(self, symbol: str) -> dict[str, Any]:
         """财务快照(股本结构 + 基本面常用字段),返回 dict。
