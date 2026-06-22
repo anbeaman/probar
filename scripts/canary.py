@@ -55,7 +55,7 @@ def classify_securities() -> tuple[str, str]:
         return _classify_exc(e)
     if list(df.columns) != SECURITIES_COLUMNS:
         return "schema", f"列契约变化: {list(df.columns)}"
-    markets = set(df["market"])
+    markets = set(df["symbol"].str[-2:])   # 交易所看 symbol 后缀(.SH/.SZ/.BJ)
     if not {"SH", "SZ", "BJ"} <= markets:
         return "data", f"缺市场: 实得 {sorted(markets)}"
     n_uniq = df["symbol"].nunique()
@@ -88,7 +88,7 @@ def classify_tdx_securities() -> tuple[str, str]:
         return _classify_exc(e)
     if list(df.columns) != SECURITIES_COLUMNS:
         return "schema", f"列契约变化: {list(df.columns)}"
-    markets = set(df["market"])
+    markets = set(df["symbol"].str[-2:])   # 交易所看 symbol 后缀(.SH/.SZ/.BJ)
     if not {"SH", "SZ"} <= markets:
         return "data", f"缺沪深: {sorted(markets)}"
     n_uniq = df["symbol"].nunique()

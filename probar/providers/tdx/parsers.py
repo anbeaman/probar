@@ -93,10 +93,10 @@ def is_a_share_stock(market: int, code: str) -> bool:
 
 
 def parse_securities(raw: list[dict[str, Any]]) -> pd.DataFrame:
-    """全品种列表(已解码)-> 仅 A 股股票的 ``[symbol, code, name, market, asset_type]``。
+    """全品种列表(已解码)-> 仅 A 股股票的 ``[symbol, code, name]``(只留接口真实字段)。
 
     TDX ``get_security_list`` 返回市场内**所有品种**(含指数/ETF/债),此处按代码前缀筛出股票;
-    market 数字编码经 :func:`symbols.from_tdx` 还原为规范市场,不外泄;按 symbol 去重。
+    交易所经 :func:`symbols.from_tdx` 归一进 symbol 后缀,TDX 数字 market 不外泄;按 symbol 去重。
     空列表 / 全被过滤 -> :class:`NoData`。
     """
     rows = []
@@ -119,8 +119,6 @@ def parse_securities(raw: list[dict[str, Any]]) -> pd.DataFrame:
                 "symbol": sym.ts_code,
                 "code": code,
                 "name": r.get("name"),
-                "market": sym.market,
-                "asset_type": "stock",
             }
         )
     if not rows:
@@ -203,7 +201,7 @@ def parse_index_kline(raw: list[dict[str, Any]], *, symbol: str, freq: str) -> p
 
 
 _XDXR_COLUMNS = [
-    "symbol", "date", "category", "name", "fenhong", "songzhuangu", "peigu", "peigujia", "suogu",
+    "symbol", "date", "category", "fenhong", "songzhuangu", "peigu", "peigujia", "suogu",
 ]
 
 

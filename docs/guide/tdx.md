@@ -63,7 +63,7 @@ df.attrs["schema_version"]  # 'tdx.quote/1'
 df = pb.tdx.securities()        # -> DataFrame,默认缓存 1h
 ```
 
-- **返回列**:`symbol, code, name, market(SH/SZ), asset_type("stock")`。名称来自通达信(GBK 解码)。
+- **返回列**:`symbol, code, name`(只留接口真实字段;交易所看 `symbol` 后缀 `.SH`/`.SZ`,不另列 market)。名称来自通达信(GBK 解码)。
 - **机制**:通达信按市场分页拉**全品种**(每页 1000)再按代码前缀筛出股票,首次 ~5s、之后走缓存;
   `use_cache=False` 强制刷新,`Tdx(cache_ttl=...)` 调缓存时长。
 - **不含北交所**:通达信行情服务器对北交所覆盖不稳定,**北交所代码表请用 `pb.dc.securities`**(各源独立)。
@@ -105,8 +105,9 @@ df = pb.tdx.index_kline("000300.SH", start="2026-01-01")  # 沪深300 区间
 df = pb.tdx.xdxr("600519.SH")        # -> DataFrame,全历史除权除息等事件
 ```
 
-- **返回列**:`symbol, date, category(类别码), name(类别名), fenhong(分红 元/10股),
+- **返回列**:`symbol, date, category(类别码:1=除权除息 / 11、12=缩股…), fenhong(分红 元/10股),
   songzhuangu(送转股 股/10股), peigu(配股 股/10股), peigujia(配股价 元/股), suogu(缩股比例)`。
+- **只留协议原始字段**:只外泄 `category` 数字码,不外泄派生的中文类别名(name)。
 - 仅 `category=1`(除权除息)填分红/送转/配股;无任何事件返回固定列空表。
 - **复权基石**:已接入 `kline` 的 `adjust=qfq/hfq` 自算复权。
 

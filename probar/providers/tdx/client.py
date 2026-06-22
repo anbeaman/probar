@@ -361,11 +361,12 @@ class Tdx:
         """除权除息事件(全历史),返回 DataFrame。
 
         参数: symbol 证券代码。
-        返回列: symbol, date, category(类别码), name(类别名), fenhong(分红 元/10股),
+        返回列: symbol, date, category(类别码,1=除权除息/11、12=缩股…), fenhong(分红 元/10股),
             songzhuangu(送转股 股/10股), peigu(配股 股/10股), peigujia(配股价 元), suogu(缩股比)。
-        说明: 仅 category=1(除权除息)填分红/送转/配股;无任何事件返回固定列空表。复权接入见路线图。
+        说明: **只留协议原始字段**——只外泄 category 数字码,不外泄派生的中文类别名(name)。
+            仅 category=1(除权除息)填分红/送转/配股;无任何事件返回固定列空表。复权接入见路线图。
         示例:
-            >>> pb.tdx.xdxr("600519.SH")[["date", "name", "fenhong", "songzhuangu"]].tail(1)
+            >>> pb.tdx.xdxr("600519.SH")[["date", "category", "fenhong", "songzhuangu"]].tail(1)
         """
         market, code = symbols.to_tdx(symbol)
         raw = self._t().get_xdxr_info(market, code)
@@ -376,14 +377,14 @@ class Tdx:
         """**沪深** A 股代码表,返回 DataFrame(从通达信全品种列表筛出股票)。
 
         参数: use_cache 是否走 TTL 缓存(默认 True,默认缓存 1h,见 Tdx(cache_ttl=))。
-        返回列: symbol, code, name, market(SH/SZ), asset_type(固定 "stock")。
+        返回列: symbol, code, name(只留接口真实字段;交易所看 symbol 后缀,不另列 market)。
         说明: 通达信按市场分页拉**全品种**(每页 1000)再按代码前缀筛股票,故默认整表缓存;
             `use_cache=False` 强制刷新。名称来自通达信(GBK 解码),与东财可能略有出入(各源独立)。
             **不含北交所**:通达信行情服务器对北交所覆盖不稳定,北交所代码表请用 `pb.dc.securities`。
         示例:
             >>> df = pb.tdx.securities()
             >>> list(df.columns)
-            ['symbol', 'code', 'name', 'market', 'asset_type']
+            ['symbol', 'code', 'name']
         """
         if use_cache:
             cached = self._cache.get("securities")
@@ -404,8 +405,9 @@ class Tdx:
                 start += len(page)
         df = parsers.parse_securities(raw)
         ensure_columns(df, SECURITIES_COLUMNS, source=self.name, interface="securities")
-        if not {"SH", "SZ"} <= set(df["market"]):   # 缓存前校验沪深都在,不缓存残表
-            raise SchemaChanged(f"通达信 securities 缺市场: 实得 {sorted(set(df['market']))}")
+        markets = set(df["symbol"].str[-2:])   # 交易所看 symbol 后缀(.SH/.SZ);缓存前校验沪深都在
+        if not {"SH", "SZ"} <= markets:
+            raise SchemaChanged(f"通达信 securities 缺市场: 实得 {sorted(markets)}")
         result = stamp(df, source=self.name, schema_version="tdx.securities/1", coverage="SH+SZ")
         if use_cache:
             self._cache.set("securities", result.copy(deep=True))

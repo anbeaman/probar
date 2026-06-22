@@ -43,8 +43,9 @@ QUOTE_COLUMNS = [
     "pct_chg",
 ]
 
-# 全市场证券列表(securities)
-SECURITIES_COLUMNS = ["symbol", "code", "name", "market", "asset_type"]
+# 全市场证券列表(securities):只留协议/接口真实字段。
+# market(SH/SZ/BJ)已隐含在 symbol 后缀(".SH"/".SZ"/".BJ"),不另列;asset_type 此前恒 "stock"、已删。
+SECURITIES_COLUMNS = ["symbol", "code", "name"]
 
 # 通达信实时五档快照(quote):**只含协议真实字段** —— 不含 name(TDX 行情协议不返回名称、
 # 恒 None)与 pct_chg(probar 自算,可由 price/prev_close 自行计算)。核心行情 + L1 盘口五档 +

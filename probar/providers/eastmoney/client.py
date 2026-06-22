@@ -288,17 +288,14 @@ class EastMoney(HttpProvider):
         参数:
             page_size: 每页条数(默认 1000,分页拉全,受统一限流器节流)。
             use_cache: 是否走 TTL 缓存(默认 True;代码表慢变,缓存秒数见 cache_ttl)。
-        返回列: symbol(规范化,如 600519.SH), code(原始6位), name,
-            market(SH/SZ/BJ), asset_type(首版固定 "stock")。market 由代码前缀推断。
+        返回列: symbol(规范化,如 600519.SH), code(原始6位), name。
+            **只留接口真实字段**:交易所看 symbol 后缀,不另列 market/asset_type。
         说明: 首版只含 A 股;ETF/可转债/指数留待后续小版本。分页拉全后**整表缓存**,
             重复调用直接命中(返回副本,改它不影响缓存),避免反复分页被限频。
         示例:
             >>> df = pb.dc.securities()
-            >>> df.shape[1], list(df.columns)
-            (5, ['symbol', 'code', 'name', 'market', 'asset_type'])
-            >>> df.head(1).to_dict("records")
-            [{'symbol': '000001.SZ', 'code': '000001', 'name': '平安银行',
-              'market': 'SZ', 'asset_type': 'stock'}]
+            >>> list(df.columns)
+            ['symbol', 'code', 'name']
         """
         if use_cache:
             cached = self._cache.get("securities")

@@ -167,16 +167,16 @@ pb.dc.securities(page_size=1000)   # -> DataFrame
 ```
 
 - **参数**:`page_size` 每页条数(默认 1000,分页拉全)。
-- **返回列**:`symbol`(规范化,如 `600519.SH`)、`code`(原始 6 位)、`name`、`market`(SH/SZ/BJ)、`asset_type`(首版固定 `stock`)。`market` 由代码前缀推断。
+- **返回列**:`symbol`(规范化,如 `600519.SH`)、`code`(原始 6 位)、`name`。**只留接口真实字段**:交易所看 `symbol` 后缀(`.SH`/`.SZ`/`.BJ`),不另列 `market`;首版只含股票,无 `asset_type`。
 
 ```python
 >>> df = pb.dc.securities()
->>> df.shape[1], list(df.columns)
-(5, ['symbol', 'code', 'name', 'market', 'asset_type'])
+>>> list(df.columns)
+['symbol', 'code', 'name']
 >>> df.head(2)
-      symbol    code  name market asset_type
-0  000001.SZ  000001  平安银行     SZ      stock
-1  600519.SH  600519  贵州茅台     SH      stock
+      symbol    code  name
+0  000001.SZ  000001  平安银行
+1  600519.SH  600519  贵州茅台
 ```
 
 !!! warning "注意"

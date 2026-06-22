@@ -2,6 +2,15 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [3.0.0] - 2026-06-22
+
+### Changed (BREAKING)
+
+- **只留协议 / 接口真实字段**——删除派生或恒定的"边界列":
+  - `securities`(`pb.dc` / `pb.tdx`):删除 `market`(由代码前缀派生;交易所已隐含在 `symbol` 后缀 `.SH`/`.SZ`/`.BJ`)与 `asset_type`(首版恒 `"stock"`)。返回列变为 `symbol, code, name`。
+  - `pb.tdx.xdxr`:删除 `name`(由 `category` 码查表派生的中文类别名)。只保留协议原始码 `category`(`1`=除权除息 / `11`、`12`=缩股 …)。
+- 迁移:交易所用 `df["symbol"].str[-2:]`(或 `.str.split(".").str[-1]`)取;xdxr 事件类别按 `category` 数字判断(`1`=除权除息)。
+
 ## [2.1.0] - 2026-06-22
 
 ### Added
@@ -127,6 +136,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[3.0.0]: https://github.com/anbeaman/probar/releases/tag/v3.0.0
 [2.1.0]: https://github.com/anbeaman/probar/releases/tag/v2.1.0
 [2.0.0]: https://github.com/anbeaman/probar/releases/tag/v2.0.0
 [1.0.0]: https://github.com/anbeaman/probar/releases/tag/v1.0.0

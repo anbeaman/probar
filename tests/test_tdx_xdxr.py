@@ -11,7 +11,7 @@ from probar.providers.tdx import _codec, parsers
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-_COLS = ["symbol", "date", "category", "name", "fenhong", "songzhuangu", "peigu",
+_COLS = ["symbol", "date", "category", "fenhong", "songzhuangu", "peigu",
          "peigujia", "suogu"]
 
 
@@ -28,7 +28,7 @@ def test_decode_xdxr():
     assert len(rows) == 44
     cat1 = [r for r in rows if r["category"] == 1]
     assert len(cat1) == 29
-    assert all(r["name"] == "除权除息" for r in cat1)
+    assert all("name" not in r for r in rows)        # 只留协议原始码 category,不外泄派生类别名
     last = cat1[-1]
     assert last["date"] == "2025-12-19"
     assert last["fenhong"] == pytest.approx(239.57, abs=0.01)

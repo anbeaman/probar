@@ -309,19 +309,13 @@ def decode_index_kline(body: bytes, category: int) -> list[dict[str, Any]]:
     return out
 
 
-_XDXR_NAME = {
-    1: "除权除息", 2: "送配股上市", 3: "非流通股上市", 4: "未知股本变动", 5: "股本变化",
-    6: "增发新股", 7: "股份回购", 8: "增发新股上市", 9: "转配股上市", 10: "可转债上市",
-    11: "扩缩股", 12: "非流通股缩股", 13: "送认购权证", 14: "送认沽权证",
-}
-
-
 def decode_xdxr(body: bytes) -> list[dict[str, Any]]:
     """解码 get_xdxr_info 响应 -> 除权除息等事件 ``list[dict]``。
 
     skip 9 字节后 `<H` 为条数;每条 29 字节:market/code/保留(8,跳过)+ 日期(4,日级)+
     category(1)+ 16 字节类别数据。category=1 除权除息 = `<ffff`(分红/配股价/送转股/配股,每 10 股);
-    category 11/12 缩股取 suogu;其余类别仅推进位置、复权相关字段置 None。
+    category 11/12 缩股取 suogu;其余类别仅推进位置、复权相关字段置 None。category 为协议原始码
+    (1 除权除息 / 11、12 缩股 …),不外泄派生的中文名(只留协议字段)。
     """
     try:
         (count,) = struct.unpack_from("<H", body, 9)   # 合法 0 事件也应是 11 字节(count=0)
@@ -335,7 +329,6 @@ def decode_xdxr(body: bytes) -> list[dict[str, Any]]:
             row: dict[str, Any] = {
                 "date": f"{year:04d}-{month:02d}-{day:02d}",
                 "category": category,
-                "name": _XDXR_NAME.get(category, str(category)),
                 "fenhong": None, "songzhuangu": None, "peigu": None,
                 "peigujia": None, "suogu": None,
             }

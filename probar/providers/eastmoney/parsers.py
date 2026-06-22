@@ -231,10 +231,10 @@ def parse_datacenter(
     return pd.DataFrame(data)[list(mapping)].rename(columns=mapping)
 
 
-def parse_securities(payload: dict[str, Any], *, asset_type: str = "stock") -> pd.DataFrame:
-    """解析 clist 全市场列表的**一页** -> [symbol, code, name, market, asset_type]。
+def parse_securities(payload: dict[str, Any]) -> pd.DataFrame:
+    """解析 clist 全市场列表的**一页** -> [symbol, code, name](只留接口真实字段)。
 
-    market 由代码前缀推断(``symbols.normalize``),比上游 f13 更可靠。
+    交易所已隐含在 symbol 后缀(".SH"/".SZ"/".BJ");首版只含股票,故不再单列 market/asset_type。
     """
     data = payload.get("data")
     if data is None:
@@ -254,8 +254,6 @@ def parse_securities(payload: dict[str, Any], *, asset_type: str = "stock") -> p
                 "symbol": sym.ts_code,
                 "code": str(code),
                 "name": r.get("f14"),
-                "market": sym.market,
-                "asset_type": asset_type,
             }
         )
     return pd.DataFrame(rows, columns=SECURITIES_COLUMNS)

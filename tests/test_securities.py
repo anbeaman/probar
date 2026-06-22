@@ -19,17 +19,16 @@ def _load(name):
 
 def test_parse_securities_schema_and_market():
     df = parsers.parse_securities(_load("eastmoney_securities.json"))
-    assert list(df.columns) == SECURITIES_COLUMNS          # 列契约(schema contract)
+    assert list(df.columns) == SECURITIES_COLUMNS          # 列契约(只 symbol/code/name)
     assert len(df) == 5
     by_code = {r["code"]: r for r in df.to_dict("records")}
-    # market 由代码前缀推断:沪 / 深 / 京
-    assert by_code["600519"]["market"] == "SH"
-    assert by_code["000001"]["market"] == "SZ"
-    assert by_code["300750"]["market"] == "SZ"
-    assert by_code["688981"]["market"] == "SH"
-    assert by_code["830799"]["market"] == "BJ"
+    # 交易所隐含在 symbol 后缀(由代码前缀推断:沪 / 深 / 京)
     assert by_code["600519"]["symbol"] == "600519.SH"
-    assert set(df["asset_type"]) == {"stock"}
+    assert by_code["000001"]["symbol"] == "000001.SZ"
+    assert by_code["300750"]["symbol"] == "300750.SZ"
+    assert by_code["688981"]["symbol"] == "688981.SH"
+    assert by_code["830799"]["symbol"] == "830799.BJ"
+    assert "market" not in df.columns and "asset_type" not in df.columns
 
 
 def test_parse_securities_missing_diff_is_schema_changed():

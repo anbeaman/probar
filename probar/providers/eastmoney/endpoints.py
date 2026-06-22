@@ -119,7 +119,7 @@ FINANCIALS_MAP = {
 
 # ---- 全市场证券列表(clist)----
 CLIST_URL = "https://push2.eastmoney.com/api/qt/clist/get"
-# 沪深京 A 股(不含 ETF / 可转债 / 指数;首版 asset_type=stock)
+# 沪深京 A 股(不含 ETF / 可转债 / 指数;首版只含股票)
 SECURITIES_FS = "m:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23,m:0 t:81 s:2048"
 # f12=代码, f13=市场(0深/1沪), f14=名称(market 实际由代码前缀推断,更可靠)
 SECURITIES_FIELDS = "f12,f13,f14"

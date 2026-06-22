@@ -52,11 +52,11 @@ def test_parse_securities_filters_and_dedup():
         {"market": 0, "code": "000001", "name": "平安银行"},   # 跨页重复 -> 去重
     ]
     df = parsers.parse_securities(raw)
-    assert list(df.columns) == SECURITIES_COLUMNS
+    assert list(df.columns) == SECURITIES_COLUMNS   # 只 symbol/code/name
     assert set(df["symbol"]) == {"000001.SZ", "600519.SH", "688981.SH"}
-    assert set(df["asset_type"]) == {"stock"}
-    by = {r["symbol"]: r for r in df.to_dict("records")}
-    assert by["000001.SZ"]["market"] == "SZ" and by["600519.SH"]["market"] == "SH"
+    assert "market" not in df.columns and "asset_type" not in df.columns
+    # 交易所隐含在 symbol 后缀
+    assert set(df["symbol"].str[-2:]) == {"SZ", "SH"}
 
 
 def test_parse_securities_no_stock_is_nodata():
@@ -173,5 +173,5 @@ def test_securities_live():
     df = pb.tdx.securities(use_cache=False)
     assert list(df.columns) == SECURITIES_COLUMNS
     assert df["symbol"].nunique() >= 4500
-    assert {"SH", "SZ"} <= set(df["market"])
+    assert {"SH", "SZ"} <= set(df["symbol"].str[-2:])   # 交易所看 symbol 后缀
     assert "600519.SH" in set(df["symbol"])
