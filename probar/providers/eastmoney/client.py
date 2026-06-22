@@ -188,6 +188,47 @@ class EastMoney(HttpProvider):
         df = parsers.parse_fflow(payload, symbol=str(symbols.normalize(symbol)))
         return stamp(df, source=self.name)
 
+    def sector_fund_flow(self, kind: str = "industry") -> pd.DataFrame:
+        """板块资金流榜(行业 / 概念),返回 DataFrame(按主力净额降序)。
+
+        参数: kind = "industry"(行业)/ "concept"(概念)。
+        返回列: name(板块名), code(板块代码 BK..), pct_chg(涨跌幅%), main(主力净额 元),
+            super / large / mid / small(超大 / 大 / 中 / 小单净额 元), main_pct(主力净占比%),
+            lead_stock(领涨股)。
+        说明: 东财服务端直接给的**板块涨跌幅 + 主力资金分档**(通达信免费协议给不出,见 pb.tdx);
+            一次翻页取全部板块。各源数据独立。
+        示例:
+            >>> pb.dc.sector_fund_flow("concept").head()[["name", "pct_chg", "main"]]
+        """
+        if kind not in ep.SECTOR_FFLOW_FS:
+            raise ValueError(f"不支持的 kind={kind!r},可选: {list(ep.SECTOR_FFLOW_FS)}")
+        items: list[dict[str, Any]] = []
+        pn = 1
+        while pn <= 50:                  # 上限保护(板块总数 < 1000)
+            params = {
+                "fid": "f62", "po": 1, "pz": 100, "pn": pn, "np": 1, "fltt": 2, "invt": 2,
+                "fs": ep.SECTOR_FFLOW_FS[kind], "fields": ep.SECTOR_FFLOW_FIELDS, "ut": ep.FFLOW_UT,
+            }
+            payload = self._http.get_json(
+                ep.CLIST_URL, params, referer="https://data.eastmoney.com/"
+            )
+            data = payload.get("data")
+            if data is None:                       # 整体无数据
+                break
+            diff = data.get("diff")
+            if diff is None:                       # 缺 diff = 上游字段变了,别静默截断成空页
+                raise SchemaChanged(f"东财 sector_fund_flow 响应缺 'diff' 字段: keys={list(data)}")
+            page = list(diff.values()) if isinstance(diff, dict) else diff
+            if not page:                           # 空列表 = 到底
+                break
+            items.extend(page)
+            if len(items) >= (data.get("total") or 0) or len(page) < 100:
+                break
+            pn += 1
+        # items 为空 -> 交 parser 抛 NoData(语义统一)
+        df = parsers.parse_sector_fund_flow({"data": {"diff": items}}, kind=kind)
+        return stamp(df, source=self.name, kind=kind)
+
     def lhb(self, *, date: str) -> pd.DataFrame:
         """龙虎榜某日明细,返回 DataFrame。
 

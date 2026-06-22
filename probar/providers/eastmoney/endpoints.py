@@ -121,5 +121,20 @@ FINANCIALS_MAP = {
 CLIST_URL = "https://push2.eastmoney.com/api/qt/clist/get"
 # 沪深京 A 股(不含 ETF / 可转债 / 指数;首版只含股票)
 SECURITIES_FS = "m:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23,m:0 t:81 s:2048"
+
+# ---- 板块资金流榜(clist + 资金流字段;行业 m:90 t:2 / 概念 m:90 t:3)----
+SECTOR_FFLOW_FS = {"industry": "m:90 t:2", "concept": "m:90 t:3"}
+SECTOR_FFLOW_FIELDS = "f12,f14,f3,f62,f184,f66,f72,f78,f84,f204"
+# 上游字段 -> 统一列(净额=元,涨跌幅/占比=%)
+SECTOR_FFLOW_MAP = {
+    "f14": "name", "f12": "code", "f3": "pct_chg",
+    "f62": "main", "f184": "main_pct",
+    "f66": "super", "f72": "large", "f78": "mid", "f84": "small",
+    "f204": "lead_stock",
+}
+SECTOR_FFLOW_COLUMNS = [
+    "name", "code", "pct_chg", "main", "super", "large", "mid", "small", "main_pct", "lead_stock",
+]
+SECTOR_FFLOW_NUMERIC = ["pct_chg", "main", "super", "large", "mid", "small", "main_pct"]
 # f12=代码, f13=市场(0深/1沪), f14=名称(market 实际由代码前缀推断,更可靠)
 SECURITIES_FIELDS = "f12,f13,f14"

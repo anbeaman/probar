@@ -123,6 +123,29 @@ pb.dc.fund_flow(symbol, days=100)   # -> DataFrame
 
 ---
 
+## sector_fund_flow — 板块资金流榜(涨跌幅 + 主力资金)
+
+```python
+pb.dc.sector_fund_flow("industry")   # 行业板块榜 -> DataFrame
+pb.dc.sector_fund_flow("concept")    # 概念板块榜
+```
+
+- **参数**:`kind` = `"industry"`(行业,~496 个)/ `"concept"`(概念,~494 个)。
+- **返回列**(净额=**元**,涨跌幅/占比=**%**;按主力净额降序):
+  `name(板块名), code(板块代码 BK..), pct_chg(涨跌幅), main(主力净额), super(超大单), large(大单), mid(中单), small(小单), main_pct(主力净占比), lead_stock(领涨股)`。
+- **一接口给齐板块涨跌幅 + 主力资金分档** —— 这是东财服务端直接算好的。
+  **通达信免费协议给不出板块涨跌幅/资金流**(无可报价的板块指数、无资金流域,且免费逐笔是抽样),
+  所以板块行情/资金榜走东财(各源数据独立)。
+
+```python
+>>> pb.dc.sector_fund_flow("industry").head(2)[["name", "pct_chg", "main", "lead_stock"]]
+     name  pct_chg          main lead_stock
+0  非银金融     5.52  1.237701e+10       东方财富
+1  有色金属     3.88  1.121023e+10       洛阳钼业
+```
+
+---
+
 ## lhb — 龙虎榜
 
 ```python

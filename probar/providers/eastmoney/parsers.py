@@ -257,3 +257,31 @@ def parse_securities(payload: dict[str, Any]) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows, columns=SECURITIES_COLUMNS)
+
+
+def parse_sector_fund_flow(payload: dict[str, Any], *, kind: str) -> pd.DataFrame:
+    """板块资金流榜(clist ``data.diff``)-> DataFrame(按主力净额降序)。
+
+    返回 :data:`endpoints.SECTOR_FFLOW_COLUMNS`:name 板块名 / code 板块代码(BK..)/ pct_chg 涨跌幅% /
+    main 主力净额(元)/ super/large/mid/small 各档净额 / main_pct 主力净占比% / lead_stock 领涨股。
+    """
+    data = payload.get("data")
+    if data is None:
+        raise NoData(f"东财 sector_fund_flow 无数据: {kind}")
+    diff = data.get("diff")
+    if diff is None:
+        raise SchemaChanged(f"东财 sector_fund_flow 响应缺少 'diff' 字段: keys={list(data)}")
+    items = list(diff.values()) if isinstance(diff, dict) else diff
+    if not items:
+        raise NoData(f"东财 sector_fund_flow 无数据: {kind}")
+    rows = []
+    for r in items:
+        if not isinstance(r, dict) or "f62" not in r:
+            raise SchemaChanged(f"东财 sector_fund_flow 行缺主力净额(f62): {r}")
+        rows.append({col: r.get(f) for f, col in ep.SECTOR_FFLOW_MAP.items()})
+    df = pd.DataFrame(rows, columns=ep.SECTOR_FFLOW_COLUMNS)
+    for c in ep.SECTOR_FFLOW_NUMERIC:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    if df["main"].isna().all():
+        raise SchemaChanged("东财 sector_fund_flow 主力净额全为 NaN,字段可能已变更")
+    return df.sort_values("main", ascending=False).reset_index(drop=True)

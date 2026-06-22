@@ -2,6 +2,12 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [3.3.0] - 2026-06-22
+
+### Added
+
+- 东财 `pb.dc.sector_fund_flow(kind)`:**板块资金流榜**(`kind` = `"industry"` 行业 / `"concept"` 概念)。一个接口给齐每个板块的**涨跌幅 + 主力/超大/大/中/小单净额 + 主力净占比 + 领涨股**,按主力净额降序。返回列 `name, code(BK..), pct_chg, main, super, large, mid, small, main_pct, lead_stock`。**这正是通达信免费协议给不出的板块行情/资金排名**(通达信无可报价板块指数、协议无资金流域、免费逐笔是抽样)——板块榜走东财(各源数据独立)。
+
 ## [3.2.0] - 2026-06-22
 
 ### Added
@@ -153,6 +159,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[3.3.0]: https://github.com/anbeaman/probar/releases/tag/v3.3.0
 [3.2.0]: https://github.com/anbeaman/probar/releases/tag/v3.2.0
 [3.1.0]: https://github.com/anbeaman/probar/releases/tag/v3.1.0
 [3.0.0]: https://github.com/anbeaman/probar/releases/tag/v3.0.0

@@ -66,6 +66,18 @@ def classify_securities() -> tuple[str, str]:
     return "ok", f"{n_uniq} 只,市场 {sorted(markets)}"
 
 
+def classify_dc_sector_fflow() -> tuple[str, str]:
+    try:
+        df = pb.dc.sector_fund_flow("industry")
+    except Exception as e:  # noqa: BLE001
+        return _classify_exc(e)
+    if not {"name", "code", "pct_chg", "main", "main_pct"} <= set(df.columns):
+        return "schema", f"缺核心列: 实得 {list(df.columns)}"
+    if len(df) < 50 or not df["main"].is_monotonic_decreasing:
+        return "data", f"板块数={len(df)} 或未按主力净额降序"
+    return "ok", f"{len(df)} 行业板块,龙头 {df.iloc[0]['name']}"
+
+
 def classify_tdx_quote() -> tuple[str, str]:
     try:
         df = pb.tdx.quotes(PROBES)
@@ -204,6 +216,7 @@ def main() -> int:
         (f"dc.kline {s}", *classify_kline(s)) for s in PROBES
     ]
     results.append(("dc.securities", *classify_securities()))
+    results.append(("dc.sector_fund_flow", *classify_dc_sector_fflow()))
     results.append(("tdx.quotes", *classify_tdx_quote()))
     results.append(("tdx.securities", *classify_tdx_securities()))
     results.append(("tdx.kline", *classify_tdx_kline()))
