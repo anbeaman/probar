@@ -67,7 +67,7 @@ EXAMPLES: dict[str, dict] = {
     },
     "tdx.quotes": {
         "params": {"symbol_list": "000001.SZ,600519.SH"},
-        "note": "通达信批量实时五档;一次可多只(自动分批<=80)。name 恒 None;含五档/内外盘/现手。",
+        "note": "通达信批量实时五档(分批<=80);只含协议真实字段,无 name/pct_chg。",
     },
     "tdx.quote": {
         "params": {"symbol": "600519.SH"},

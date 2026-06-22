@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from probar.core.errors import NoData, SchemaChanged
-from probar.core.models import QUOTE_COLUMNS, TDX_QUOTE_COLUMNS
+from probar.core.models import TDX_QUOTE_COLUMNS
 from probar.providers.tdx import parsers
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -24,19 +24,20 @@ def _raw():
 def test_parse_quotes_schema_and_values():
     df = parsers.parse_quotes(_raw())
     assert list(df.columns) == TDX_QUOTE_COLUMNS          # 列契约(schema contract)
-    assert set(QUOTE_COLUMNS) <= set(df.columns)          # ⊇ 跨源核心列
+    # 跨源共享核心列(name/pct_chg 不在内:TDX 不返回名称、pct_chg 可由 price/prev_close 自算)
+    shared_core = {"symbol", "price", "open", "high", "low", "prev_close", "volume", "amount"}
+    assert shared_core <= set(df.columns)
+    assert "name" not in df.columns and "pct_chg" not in df.columns   # 只留协议真实字段
     assert "market" not in df.columns                     # TDX 的数字 market 不外泄
     assert len(df) == 2
     by = {r["symbol"]: r for r in df.to_dict("records")}
     a = by["000001.SZ"]
-    assert a["name"] is None                              # TDX 行情不返回名称
     assert a["price"] == 10.52
     assert a["prev_close"] == 10.78
     assert a["volume"] == 1426893
     assert a["bid1"] == 10.52 and a["ask1"] == 10.53
     assert a["ask_vol1"] == 2
     assert a["bid1"] <= a["ask1"]                         # 盘口合理
-    assert a["pct_chg"] == pytest.approx(round((10.52 - 10.78) / 10.78 * 100, 4))
     assert by["600519.SH"]["price"] == 1215.0
 
 
@@ -112,7 +113,7 @@ def test_quote_single_returns_native_dict():
     q = tdx.quote("000001.SZ")
     assert q["symbol"] == "000001.SZ"
     assert q["price"] == 10.52 and isinstance(q["price"], float)  # 原生 float,非 numpy
-    assert q["name"] is None
+    assert "name" not in q and "pct_chg" not in q                 # 只留协议真实字段
 
 
 def test_quotes_empty_input_raises():

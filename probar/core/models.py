@@ -1,8 +1,9 @@
 """数据契约(统一核心 schema)。
 
 设计取舍:大表行情**不做逐行 pydantic 校验**,只用轻量的
-"列存在 + dtype" 断言;严格校验留给 canary / ``validate=True``。各源同名接口返回
-同一套**核心列**,源特有的额外字段放进 ``df.attrs['extras']`` 或 ``raw``。
+"列存在 + dtype" 断言;严格校验留给 canary / ``validate=True``。各源同名接口**尽量**返回
+同一套**核心列**;某源不提供 / probar 自算的字段会从该源删减(如通达信不外泄 name/pct_chg/turnover,
+见 ``TDX_QUOTE_COLUMNS`` 与各 client 文档),源特有的额外字段放进 ``df.attrs['extras']`` 或 ``raw``。
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from .errors import SchemaChanged
 if TYPE_CHECKING:
     import pandas as pd
 
-# 同名接口的核心列契约(跨源一致)
+# 同名接口的列契约(此为**东财 dc 全集**;通达信 tdx 等源会删减自算/恒空列,用各自的 _TDX_* 列表)
 KLINE_COLUMNS = [
     "symbol",
     "date",
@@ -45,10 +46,11 @@ QUOTE_COLUMNS = [
 # 全市场证券列表(securities)
 SECURITIES_COLUMNS = ["symbol", "code", "name", "market", "asset_type"]
 
-# 通达信实时五档快照(quote):核心列 + L1 盘口五档 + 内外盘/现手/服务器时间。
-# name 恒为 None(TDX 行情协议不返回名称);inner_vol/outer_vol 为内盘/外盘。
+# 通达信实时五档快照(quote):**只含协议真实字段** —— 不含 name(TDX 行情协议不返回名称、
+# 恒 None)与 pct_chg(probar 自算,可由 price/prev_close 自行计算)。核心行情 + L1 盘口五档 +
+# 内外盘/现手/服务器时间。需要名称用 pb.dc 或 pb.tdx.securities 映射。
 TDX_QUOTE_COLUMNS = [
-    *QUOTE_COLUMNS,  # symbol,name,price,open,high,low,prev_close,volume,amount,pct_chg
+    "symbol", "price", "open", "high", "low", "prev_close", "volume", "amount",
     "bid1", "bid_vol1", "ask1", "ask_vol1",
     "bid2", "bid_vol2", "ask2", "ask_vol2",
     "bid3", "bid_vol3", "ask3", "ask_vol3",

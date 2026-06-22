@@ -21,14 +21,15 @@
 | 列 | 含义 |
 |---|---|
 | `symbol` | 规范代码,如 `600519.SH` |
-| `name` | **恒为 None**(TDX 行情协议不返回名称;名称用 `pb.dc` 或 `tdx.securities` 映射) |
 | `price` / `open` / `high` / `low` / `prev_close` | 现价 / 开 / 高 / 低 / 昨收(元) |
 | `volume` / `amount` | 累计成交量(手) / 成交额(元) |
-| `pct_chg` | 涨跌幅(%,由 price 与 prev_close 计算) |
 | `bid1..bid5` / `bid_vol1..bid_vol5` | 买一~买五 价 / 量 |
 | `ask1..ask5` / `ask_vol1..ask_vol5` | 卖一~卖五 价 / 量 |
 | `cur_vol` / `inner_vol` / `outer_vol` | 现手 / 内盘(主动卖) / 外盘(主动买) |
 | `servertime` | 服务器时间(如 `14:59:58.376`) |
+
+> **只含协议真实字段**:不含 `name`(TDX 不返回名称,用 `pb.dc` 或 `tdx.securities` 映射)、
+> 也不含 `pct_chg`(涨跌幅可由 `price`、`prev_close` 自算)。东财 `pb.dc.quotes` 才有这两列。
 
 `df.attrs` 另含溯源:`source`、`schema_version`(`tdx.quote/1`)、`server`(实际所用服务器 `(host, port)`)。
 
@@ -38,10 +39,11 @@
 import probar as pb
 
 df = pb.tdx.quotes(["000001.SZ", "600519.SH"])
-print(df[["symbol", "price", "prev_close", "pct_chg", "bid1", "ask1"]])
-#       symbol    price  prev_close  pct_chg     bid1      ask1
-#    000001.SZ    10.52       10.78  -2.4119    10.52     10.53
-#    600519.SH  1215.00     1240.00  -2.0161  1215.00   1215.28
+print(df[["symbol", "price", "prev_close", "bid1", "ask1"]])
+#       symbol    price  prev_close     bid1      ask1
+#    000001.SZ    10.52       10.78    10.52     10.53
+#    600519.SH  1215.00     1240.00  1215.00   1215.28
+# 涨跌幅自算:df["price"] / df["prev_close"] - 1
 
 q = pb.tdx.quote("600519.SH")           # 单只 -> dict(含五档)
 q["price"], q["bid1"], q["ask1"]        # (1215.0, 1215.0, 1215.28)
@@ -53,7 +55,6 @@ df.attrs["schema_version"]  # 'tdx.quote/1'
 **注意**
 
 - 停牌 / 无效代码不会出现在返回里(只返回有数据的);全部无数据抛 `NoData`。
-- `name` 恒为 `None` —— 需要名称用 `pb.dc.quote` 或后续的 `tdx.securities` 映射。
 - 北交所(BJ)能否取到取决于具体服务器(部分标准行情站不含北交所);服务器池会自动挑能用的。
 
 ## `securities` —— 沪深 A 股代码表(v0.2,已实现)
@@ -78,9 +79,10 @@ df = pb.tdx.kline("000001.SZ", freq="5m", start="2026-06-01")  # 区间分钟线
 
 - **参数**:`freq` = `1m/5m/15m/30m/60m/1d/1w/1M`;`start`/`end` = `"YYYY-MM-DD"`(省略 start 取最近 `limit` 根);
   `adjust` = `None`原始价 / `qfq`前复权 / `hfq`后复权(用除权除息 xdxr 自算)。
-- **返回列**:`symbol, date, open, high, low, close, volume(手), amount(元), pct_chg(%), turnover`。
-- **注意**:`turnover` 恒为 `NaN`(协议不提供);复权仅调 OHLC、`pct_chg` 重算;
-  **qfq 锚最新、hfq 锚拉取窗口最早**(窗口相对,不与东财逐值相等)。分钟历史比东财更深,是通达信的强项。
+- **返回列**:`symbol, date, open, high, low, close, volume(手), amount(元)`。
+  **只含协议真实字段**:不含 `pct_chg`(涨跌幅可由 `close` 自算)/ `turnover`(通达信 K 线不提供;东财 `pb.dc.kline` 才有)。
+- **注意**:复权仅调 OHLC;**qfq 锚最新、hfq 锚拉取窗口最早**(窗口相对,不与东财逐值相等)。
+  分钟历史比东财更深,是通达信的强项。
 - **复权限制**:仅日线/分钟线(`1w`/`1M` 复权抛 `NotSupported`);给 `end` 时 qfq 锚"拉取到的最新"而非 end;缩股暂不参与复权。
 
 ## `xdxr` —— 除权除息事件(v0.4,已实现)

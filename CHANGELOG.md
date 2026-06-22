@@ -2,6 +2,16 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.0.0] - 2026-06-21
+
+### Changed (BREAKING)
+
+- **通达信接口只返回协议真实字段**——移除 probar 自算或恒空的列(原则:自己算的、恒为空的列不外泄):
+  - `pb.tdx.kline`:移除 `pct_chg`(probar 用相邻收盘价自算,可自行 `close.pct_change()`)、`turnover`(通达信 K 线协议不提供,此前恒 `NaN`)。返回列变为 `symbol, date, open, high, low, close, volume, amount`。
+  - `pb.tdx.quotes` / `quote`:移除 `name`(通达信行情协议不返回名称,此前恒 `None`)、`pct_chg`(probar 自算,可由 `price`/`prev_close` 自算)。仍含核心行情 + L1 五档 + 内外盘/现手/服务器时间。
+  - **东财 `pb.dc.*` 完全不受影响**:其 `name` / `pct_chg` / `turnover` 是东财接口**真实返回**的数据,全部保留。
+- 这是对 1.0.0 稳定列契约的破坏性变更,故升大版本(SemVer)。迁移:涨跌幅请自算(`close.pct_change()` 或 `price/prev_close-1`);名称用 `pb.dc` 或 `pb.tdx.securities`;换手率用 `pb.dc.kline`。
+
 ## [1.0.0] - 2026-06-21
 
 **首个稳定版**。自此,**已实现的公共 API 进入语义化版本稳定承诺**——破坏性变更才升大版本。
@@ -107,6 +117,7 @@
 - 本库封装非官方/逆向接口,详见 README 免责声明。
 - 发布采用 PyPI Trusted Publishing(OIDC),见 `.github/workflows/release.yml`。
 
+[2.0.0]: https://github.com/anbeaman/probar/releases/tag/v2.0.0
 [1.0.0]: https://github.com/anbeaman/probar/releases/tag/v1.0.0
 [0.8.1]: https://github.com/anbeaman/probar/releases/tag/v0.8.1
 [0.8.0]: https://github.com/anbeaman/probar/releases/tag/v0.8.0

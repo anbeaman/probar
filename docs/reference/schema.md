@@ -12,12 +12,16 @@
 | `open/high/low/close` | 开/高/低/收 | 元 |
 | `volume` | 成交量 | 手 |
 | `amount` | 成交额 | 元 |
-| `pct_chg` | 涨跌幅 | % |
-| `turnover` | 换手率 | % |
+| `pct_chg` | 涨跌幅(**仅 `pb.dc`**) | % |
+| `turnover` | 换手率(**仅 `pb.dc`**) | % |
+
+> `pb.tdx.kline` **只返回协议真实字段**(到 `amount` 为止):不含 `pct_chg`(可由 `close` 自算)、
+> 也不含 `turnover`(通达信 K 线协议不提供)。`pb.dc.kline` 这两列均为东财真实返回。
 
 ## quote / quotes / 实时快照
 
-`symbol, name, price, open, high, low, prev_close, volume(手), amount(元), pct_chg(%)`。
+跨源核心列:`symbol, price, open, high, low, prev_close, volume(手), amount(元)`。
+`pb.dc` 另含 `name`、`pct_chg(%)`(东财真实返回);`pb.tdx` **不含** name/pct_chg(只返回协议真实字段)。
 
 ### pb.tdx.quotes / quote 额外列(L1 五档)
 
@@ -31,7 +35,8 @@
 | `inner_vol` / `outer_vol` | 内盘(主动卖) / 外盘(主动买) | 手 |
 | `servertime` | 服务器时间,如 `14:59:58.376` | 字符串 |
 
-注:`name` 在通达信侧**恒为 None**(协议不返回名称),需要名称用 `pb.dc` 或 `tdx.securities` 映射。
+注:`pb.tdx.quotes` / `quote` **不返回 `name`**(协议无名称,用 `pb.dc` 或 `tdx.securities` 映射)、
+也**不返回 `pct_chg`**(涨跌幅可由 `price` / `prev_close` 自算)——只外泄协议真实字段。
 
 ## intraday / 当日分时
 

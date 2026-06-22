@@ -22,7 +22,7 @@ import pandas as pd
 from ...core import symbols
 from ...core.cache import TTLCache
 from ...core.errors import NoData, NotSupported, SchemaChanged
-from ...core.models import QUOTE_COLUMNS, SECURITIES_COLUMNS, ensure_columns, stamp
+from ...core.models import SECURITIES_COLUMNS, TDX_QUOTE_COLUMNS, ensure_columns, stamp
 from . import parsers
 
 if TYPE_CHECKING:
@@ -94,13 +94,13 @@ class Tdx:
 
         参数:
             symbol_list: 代码列表,如 ["000001.SZ", "600519.SH"];自动分批(每批<=80)。
-        返回列(核心 + L1 盘口):
-            symbol, name(恒 None,TDX 不返回名称), price, open, high, low,
-            prev_close, volume(手), amount(元), pct_chg(%, 由 price/prev_close 算),
+        返回列(只含协议真实字段 + L1 盘口):
+            symbol, price, open, high, low, prev_close, volume(手), amount(元),
             bid1..bid5 / bid_vol1..5 / ask1..ask5 / ask_vol1..5(五档价与量),
             cur_vol(现手), inner_vol(内盘), outer_vol(外盘), servertime(服务器时间)。
         注意:
-            - 名称需另用 pb.dc 或 tdx.securities 映射;
+            - 不含 name(TDX 不返回名称,用 pb.dc 或 tdx.securities 映射)、
+              不含 pct_chg(可由 price/prev_close 自算);
             - 停牌/无效代码不会出现在返回里(只返回有数据的);全部无数据抛 NoData。
         示例:
             >>> pb.tdx.quotes(["000001.SZ", "600519.SH"])[["symbol", "price", "bid1", "ask1"]]
@@ -113,7 +113,7 @@ class Tdx:
         req = [symbols.to_tdx(s) for s in symbol_list]
         raw = self._t().get_security_quotes(req)
         df = parsers.parse_quotes(raw)
-        ensure_columns(df, QUOTE_COLUMNS, source=self.name, interface="quotes")
+        ensure_columns(df, TDX_QUOTE_COLUMNS, source=self.name, interface="quotes")
         return stamp(df, source=self.name, schema_version=_SCHEMA, server=self._t().server)
 
     def quote(self, symbol: str) -> dict[str, Any]:
@@ -151,8 +151,9 @@ class Tdx:
             adjust: None/"none"原始价 / "qfq"前复权 / "hfq"后复权(用除权除息 xdxr 自算)。
             start, end: "YYYY-MM-DD";省略 start 时取最近 limit 根。
             limit:  未给 start 时的最多根数(默认 800)。
-        返回列: symbol, date, open, high, low, close, volume(手), amount(元), pct_chg(%), turnover。
-        说明: turnover 恒 NaN;复权(qfq/hfq)用 xdxr 自算、仅调 OHLC、pct_chg 重算;
+        返回列: symbol, date, open, high, low, close, volume(手), amount(元)。
+        说明: **只返回协议真实字段**——不含 pct_chg(可由 close 自算)/ turnover(通达信 K 线不提供;
+            东财 pb.dc.kline 才有真实换手率)。复权(qfq/hfq)用 xdxr 自算、仅调 OHLC;
             qfq 锚最新一根、hfq 锚窗口最早一根(窗口相对,各源口径不同)。
             面向 A 股**股票**(volume 股数 /100 转手);ETF/可转债"一手"未必 100 股,volume 仅供参考。
             分钟线受协议 offset(uint16)限制,最深约 6.5 万根。
@@ -181,11 +182,12 @@ class Tdx:
             offset += len(page)
             if len(page) < _BARS_PER_PAGE:
                 break                 # 没有更早的历史了
-            # 多拉一根前置 bar:保证过滤/截断后首行 pct_chg 相对前一根、而非 NaN
+            # 多取一根前置 bar:保持复权窗口与历史一致(hfq 锚"拉取窗口最早一根");
+            # 该前置 bar 在 tail/过滤后被丢弃,不影响 adjust=None 的最近 limit 根
             if start is None:
                 if len(raw) > limit:
                     break
-            elif raw[0]["datetime"][:10] < start:   # 已回溯到 start 之前(含一根前置)
+            elif raw[0]["datetime"][:10] < start:
                 break
         df = parsers.parse_kline(raw, symbol=str(symbols.normalize(symbol)), freq=freq)
         if adjust in ("qfq", "hfq"):   # 用全窗口原始价 + 除权除息事件复权,再过滤

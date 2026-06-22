@@ -13,7 +13,7 @@ import pandas as pd
 
 from ...core import symbols
 from ...core.errors import NoData, SchemaChanged
-from ...core.models import KLINE_COLUMNS, SECURITIES_COLUMNS, TDX_QUOTE_COLUMNS
+from ...core.models import SECURITIES_COLUMNS, TDX_QUOTE_COLUMNS
 
 # 解析必需的关键字段:缺失即视为协议/字段变更(SchemaChanged)。
 # 含 bid1/ask1 —— 这是五档接口,缺盘口即说明协议层已变,不该静默返回 None。
@@ -37,7 +37,7 @@ def parse_quotes(raw: list[dict[str, Any]]) -> pd.DataFrame:
     - 空列表 -> :class:`NoData`(请求的代码均无返回);
     - 缺关键字段 -> :class:`SchemaChanged`;
     - market(0/1/2)经 :func:`symbols.from_tdx` 还原为规范 symbol;
-    - pct_chg 由 price / last_close 计算(TDX 协议不直接返回涨跌幅)。
+    - **只返回协议真实字段**:不含 name(TDX 不返回名称)/ pct_chg(可由 price、prev_close 自算)。
     """
     if not raw:
         raise NoData("通达信 quote 无数据(请求的代码均无返回)")
@@ -55,22 +55,15 @@ def parse_quotes(raw: list[dict[str, Any]]) -> pd.DataFrame:
         except ValueError as e:
             # market 非 0/1/2:归为协议变更,且不把 TDX 的 market 编码语义外泄
             raise SchemaChanged(f"通达信 quote 行 market 非法: {r.get('market')!r}") from e
-        price = _num(r.get("price"))
-        prev_close = _num(r.get("last_close"))
-        pct_chg: float | None = None
-        if price is not None and prev_close is not None and prev_close != 0:
-            pct_chg = round((price - prev_close) / prev_close * 100, 4)
         row: dict[str, Any] = {
             "symbol": sym.ts_code,
-            "name": None,  # TDX 行情协议不返回名称;需要名称用 pb.dc 或 tdx.securities 映射
-            "price": price,
+            "price": _num(r.get("price")),
             "open": _num(r.get("open")),
             "high": _num(r.get("high")),
             "low": _num(r.get("low")),
-            "prev_close": prev_close,
+            "prev_close": _num(r.get("last_close")),
             "volume": r.get("vol"),       # 累计成交量(手)
             "amount": r.get("amount"),    # 累计成交额(元)
-            "pct_chg": pct_chg,
             "cur_vol": r.get("cur_vol"),  # 现手
             "inner_vol": r.get("s_vol"),  # 内盘(主动卖)
             "outer_vol": r.get("b_vol"),  # 外盘(主动买)
@@ -137,14 +130,18 @@ def parse_securities(raw: list[dict[str, Any]]) -> pd.DataFrame:
 
 _MINUTE_FREQS = {"1m", "5m", "15m", "30m", "60m"}
 
+# 通达信 K 线**只返回协议真实字段**:不含 pct_chg(probar 自算,可由 close 自行计算)、
+# 也不含 turnover(通达信 K 线协议不提供换手率)。东财 pb.dc.kline 另含这两列(其源数据真有)。
+_TDX_KLINE_COLUMNS = ["symbol", "date", "open", "high", "low", "close", "volume", "amount"]
+
 
 def parse_kline(raw: list[dict[str, Any]], *, symbol: str, freq: str) -> pd.DataFrame:
-    """K 线 bar(已解码)-> 含 :data:`KLINE_COLUMNS` 的 DataFrame(**原始价**,未复权)。
+    """K 线 bar(已解码)-> 含 :data:`_TDX_KLINE_COLUMNS` 的 DataFrame(**原始价**,未复权)。
 
     - 空 -> :class:`NoData`;
     - volume 由通达信原始**股数**换算为**手**(/100,对齐东财);amount 为元;
-    - pct_chg 由收盘价相邻变化算(通达信 bar 不直接给);turnover 通达信不提供,置 NaN;
-    - 日/周/月的 date 归一到零点,分钟级保留时分。
+    - 日/周/月的 date 归一到零点,分钟级保留时分;
+    - **只返回协议真实字段**:不含 pct_chg(可由 close 自算)/ turnover(通达信 K 线不提供)。
     """
     if not raw:
         raise NoData(f"通达信 kline 无数据: {symbol}")
@@ -165,9 +162,7 @@ def parse_kline(raw: list[dict[str, Any]], *, symbol: str, freq: str) -> pd.Data
     df["date"] = pd.to_datetime(df["date"])
     if freq not in _MINUTE_FREQS:
         df["date"] = df["date"].dt.normalize()
-    df["pct_chg"] = (df["close"].pct_change() * 100).round(4)
-    df["turnover"] = float("nan")   # 通达信 K 线不提供换手率
-    return df[KLINE_COLUMNS]
+    return df[_TDX_KLINE_COLUMNS]
 
 
 _XDXR_COLUMNS = [
@@ -193,7 +188,7 @@ def apply_adjust(df: pd.DataFrame, events: list[dict[str, Any]], adjust: str) ->
     """对**原始价** K 线 df 应用前(qfq)/后(hfq)复权;``events`` 为 get_xdxr_info 解码结果。
 
     除权参考价 = (前收盘×10 - 分红 + 配股×配股价) / (10 + 送转 + 配股),每事件因子 = 前收盘/参考价;
-    后复权(hfq)锚定最早、前复权(qfq)锚定最新。仅调 OHLC(量额不动);pct_chg 按复权收盘重算。
+    后复权(hfq)锚定最早、前复权(qfq)锚定最新。仅调 OHLC(量额不动)。
     仅用窗口内、且能取到前收盘的除权除息(category=1)事件。
     """
     df = df.copy()
@@ -222,7 +217,6 @@ def apply_adjust(df: pd.DataFrame, events: list[dict[str, Any]], adjust: str) ->
         factor = factor / factor.iloc[0]             # 后复权:锚定窗口最早一根 = 原始价
     for col in ("open", "high", "low", "close"):
         df[col] = (df[col] * factor).round(3)
-    df["pct_chg"] = (df["close"].pct_change() * 100).round(4)
     return df
 
 

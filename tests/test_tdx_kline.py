@@ -7,10 +7,11 @@ import pandas as pd
 import pytest
 
 from probar.core.errors import NoData, NotSupported, SchemaChanged
-from probar.core.models import KLINE_COLUMNS
 from probar.providers.tdx import _codec, parsers
 
 FIXTURES = Path(__file__).parent / "fixtures"
+# 通达信 kline 只返回协议真实字段(不含 probar 自算的 pct_chg、恒空的 turnover)
+_KCOLS = ["symbol", "date", "open", "high", "low", "close", "volume", "amount"]
 
 
 def _fx():
@@ -42,13 +43,12 @@ def test_parse_kline():
     fx = _fx()
     bars = _codec.decode_kline(bytes.fromhex(fx["bars_day_600519"]), fx["category"])
     df = parsers.parse_kline(bars, symbol="600519.SH", freq="1d")
-    assert list(df.columns) == KLINE_COLUMNS
+    assert list(df.columns) == _KCOLS
+    assert "pct_chg" not in df.columns and "turnover" not in df.columns   # 自算/恒空列不外泄
     assert (df["symbol"] == "600519.SH").all()
-    assert df["turnover"].isna().all()                       # 通达信不给换手率
     last = df.iloc[-1]
     assert last["close"] == pytest.approx(1215.0)
     assert last["volume"] == pytest.approx(57471.73, abs=0.01)   # 股 / 100 -> 手
-    assert last["pct_chg"] == pytest.approx(-2.0161, abs=1e-3)
     assert last["date"] == pd.Timestamp("2026-06-18")        # 日线归零点
 
 
@@ -85,7 +85,7 @@ def test_kline_client_limit():
     tdx = Tdx()
     tdx._transport = _FakeTransport(_mkbars(10))
     df = tdx.kline("600519.SH", freq="1d", limit=3)
-    assert list(df.columns) == KLINE_COLUMNS
+    assert list(df.columns) == _KCOLS
     assert len(df) == 3                                       # 截到 limit(最近 3 根)
     assert df["date"].is_monotonic_increasing
     assert df.attrs["freq"] == "1d" and df.attrs["adjust"] == "none"
@@ -122,7 +122,6 @@ def _kdf(closes, dates):
         "date": pd.to_datetime(dates),
         "open": closes, "high": closes, "low": closes, "close": list(map(float, closes)),
         "volume": [1.0] * n, "amount": [1.0] * n,
-        "pct_chg": [None] * n, "turnover": [float("nan")] * n,
     })
 
 
@@ -140,7 +139,7 @@ def test_apply_adjust_qfq_hfq():
     assert qfq["close"].iloc[-1] == 13.0                      # qfq 锚最新
     assert qfq["close"].iloc[0] == pytest.approx(9.0909, abs=1e-3)   # 10 / 1.1
     assert list(qfq["volume"]) == [1.0, 1.0, 1.0, 1.0]        # 量额不动
-    assert qfq["pct_chg"].iloc[1:].notna().all()             # pct_chg 重算
+    assert "pct_chg" not in qfq.columns                      # 复权不再产出自算 pct_chg
 
 
 def test_apply_adjust_no_events_unchanged():
@@ -208,7 +207,7 @@ class _TwoPageTransport:
 
 
 def test_kline_two_page_assembly(monkeypatch):
-    # 多页:翻页拼接顺序(整体升序)+ 含前置 bar 使首行 pct_chg 非 NaN(分页边界回归)
+    # 多页:翻页拼接顺序(整体升序)+ tail 取最近 N(分页边界回归)
     from probar import Tdx
     from probar.providers.tdx import client as tdx_client
 
@@ -219,7 +218,7 @@ def test_kline_two_page_assembly(monkeypatch):
     assert len(df) == 3                                    # 跨两页取最近 3 根
     assert df["date"].is_monotonic_increasing             # 旧页拼前 -> 整体升序
     assert list(df["close"]) == [21.0, 30.0, 31.0]
-    assert df["pct_chg"].notna().all()                    # 含前置 -> 首行非 NaN
+    assert list(df.columns) == _KCOLS                     # 只含协议真实字段
 
 
 @pytest.mark.network
@@ -227,6 +226,6 @@ def test_kline_live():
     import probar as pb
 
     df = pb.tdx.kline("600519.SH", freq="1d", limit=5)
-    assert list(df.columns) == KLINE_COLUMNS
+    assert list(df.columns) == _KCOLS
     assert len(df) <= 5 and (df["close"] > 0).all()
     assert df["date"].is_monotonic_increasing

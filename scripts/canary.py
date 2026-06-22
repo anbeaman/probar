@@ -20,9 +20,12 @@ import sys
 
 import probar as pb
 from probar.core.errors import NetworkError, NoData, RateLimited, SchemaChanged
-from probar.core.models import KLINE_COLUMNS, QUOTE_COLUMNS, SECURITIES_COLUMNS
+from probar.core.models import SECURITIES_COLUMNS
 
 PROBES = ["600519.SH", "000001.SZ"]
+# 通达信只返回协议真实字段(不含 dc 才有的 name/pct_chg/turnover)
+_TDX_KLINE_COLS = ["symbol", "date", "open", "high", "low", "close", "volume", "amount"]
+_TDX_QUOTE_CORE = {"symbol", "price", "open", "high", "low", "prev_close", "volume", "amount"}
 
 
 def _classify_exc(e: Exception) -> tuple[str, str]:
@@ -68,7 +71,7 @@ def classify_tdx_quote() -> tuple[str, str]:
         df = pb.tdx.quotes(PROBES)
     except Exception as e:  # noqa: BLE001
         return _classify_exc(e)
-    if [c for c in QUOTE_COLUMNS if c not in df.columns]:
+    if _TDX_QUOTE_CORE - set(df.columns):
         return "schema", f"缺核心列: 实得 {list(df.columns)[:6]}…"
     if df.empty or (df["price"] <= 0).any():
         return "data", f"现价异常: {df['price'].tolist()}"
@@ -101,7 +104,7 @@ def classify_tdx_kline() -> tuple[str, str]:
         df = pb.tdx.kline("600519.SH", freq="1d", limit=5)
     except Exception as e:  # noqa: BLE001
         return _classify_exc(e)
-    if list(df.columns) != KLINE_COLUMNS:
+    if list(df.columns) != _TDX_KLINE_COLS:
         return "schema", f"列契约变化: {list(df.columns)}"
     if df.empty or (df["close"] <= 0).any():
         return "data", f"收盘价异常(前8): {df['close'].tolist()[:8]}"

@@ -1,31 +1,23 @@
 # 更新日志
 
-完整记录见仓库 [`CHANGELOG.md`](https://github.com/anbeaman/probar/blob/main/CHANGELOG.md)。
+完整逐版记录见仓库 [`CHANGELOG.md`](https://github.com/anbeaman/probar/blob/main/CHANGELOG.md)。下面是里程碑摘要。
 
-## 0.5.0 (2026-06-21)
+## 2.0.0 — 通达信接口只返回协议真实字段(**BREAKING**)
 
-- 通达信 `pb.tdx.kline` 支持前/后复权 `adjust="qfq"/"hfq"`(用 `xdxr` 除权除息自算;qfq 锚最新、hfq 锚窗口最早,窗口相对)。
+移除 probar 自算 / 恒空的列:`pb.tdx.kline` 去 `pct_chg` / `turnover`、`pb.tdx.quotes` / `quote` 去 `name` / `pct_chg`。
+**东财 `pb.dc.*` 完全不受影响**(其 `name` / `pct_chg` / `turnover` 是东财接口真实返回)。
+迁移:涨跌幅自算(`close.pct_change()`)、名称用 `pb.dc` 或 `pb.tdx.securities`、换手率用 `pb.dc.kline`。
 
-## 0.4.0 (2026-06-21)
+## 1.0.0 — 首个稳定版
 
-- 通达信 `pb.tdx.xdxr`:除权除息事件(clean-room 自写 `get_xdxr_info`,与参考实现逐值零不符)。复权基石(qfq/hfq 接入 kline 见路线图)。
+已实现的公共 API 进入语义化版本稳定承诺。通达信 clean-room 数据族完整:
+`quotes / quote / securities / kline`(含 qfq/hfq 复权)`/ xdxr / ticks / ticks_hist / finance_info`,纯标准库、零第三方依赖。
 
-## 0.3.0 (2026-06-21)
+## 0.6.0 – 0.8.1
 
-- 通达信 `pb.tdx.kline`:历史 K 线(原始价,clean-room 自写 `get_security_bars`;支持 1m~月线、start/end/limit)。复权需 xdxr(暂 `NotSupported`)。
+通达信 `ticks`(当日逐笔)、`ticks_hist`(历史逐笔)、`finance_info`(股本结构快照);`pb.capabilities()` 能力矩阵精度修正。
 
-## 0.2.0 (2026-06-21)
+## 0.1.0 – 0.5.0
 
-- 通达信 `pb.tdx.securities`:沪深 A 股代码表(clean-room 自写协议命令,按前缀筛股票 + GBK 名称;默认缓存)。北交所请用 `pb.dc.securities`。
-- 修复:东财 datacenter "该日无数据"(code 9201)误判 `SchemaChanged` → 改 `NoData`。
-- 通达信传输层重构为通用失败换服务器;默认连接超时 5→8s。
-
-## 0.1.0 (2026-06-21)
-
-- 按数据源拆分命名空间 `pb.dc / pb.tdx / pb.ths`(各源数据独立、不互相替换);每个只暴露该源真实支持的接口。
-- 东方财富(`pb.dc`)已实现:`quote / quotes / kline / intraday / fund_flow / lhb / financials / securities`。
-- 通达信(`pb.tdx`):`quotes / quote` 批量实时五档,clean-room 自写二进制协议(纯标准库,零第三方依赖)+ 服务器池业务探针。
-- 共享层:统一异常模型、代码归一化、限流、缓存、HTTP 传输、能力矩阵 `pb.capabilities()`。
-- 本地接口可视化测试台 `probar[playground]`。
-- 离线解析测试(冻结真实响应 fixture)、GitHub CI、每日 canary smoke、PyPI Trusted Publishing 发布工作流。
-- 文档站(本站)+ 工程规范 + 贡献指南。
+按数据源拆分命名空间 `pb.dc / pb.tdx / pb.ths`;东财 8 接口全链路;
+通达信 clean-room 二进制协议(批量五档 / 代码表 / 历史 K 线 + 前后复权 / 除权除息)。
